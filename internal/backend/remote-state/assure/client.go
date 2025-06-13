@@ -30,13 +30,10 @@ const (
 )
 
 type RemoteClient struct {
-	blobClient    *blockblob.Client
-	accountName   string
-	containerName string
-	keyName       string
-	leaseID       *string
-	snapshot      bool
-	timeout       time.Duration
+	blobClient *blockblob.Client
+	leaseID    *string
+	snapshot   bool
+	timeout    time.Duration
 }
 
 func (c *RemoteClient) Get() (*remote.Payload, error) {
@@ -73,9 +70,9 @@ func (c *RemoteClient) Put(data []byte) error {
 	defer ctxCancel()
 	if c.snapshot {
 		snapshotInput := &blob.CreateSnapshotOptions{AccessConditions: c.leaseAccessCondition()}
-		log.Printf("[DEBUG] Snapshotting existing Blob %q (Container %q / Account %q)", c.keyName, c.containerName, c.accountName)
+		log.Printf("[DEBUG] Snapshotting existing Blob %s", c.blobClient.URL())
 		if _, err := c.blobClient.CreateSnapshot(ctx, snapshotInput); err != nil {
-			return fmt.Errorf("error snapshotting Blob %q (Container %q / Account %q): %w", c.keyName, c.containerName, c.accountName, err)
+			return fmt.Errorf("error snapshotting Blob %s: %w", c.blobClient.URL(), err)
 		}
 
 		log.Print("[DEBUG] Created blob snapshot")
@@ -111,8 +108,7 @@ func (c *RemoteClient) Delete() error {
 }
 
 func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
-	stateName := fmt.Sprintf("%s/%s", c.containerName, c.keyName)
-	info.Path = stateName
+	info.Path = c.blobClient.URL()
 
 	if info.ID == "" {
 		lockID, err := uuid.GenerateUUID()
