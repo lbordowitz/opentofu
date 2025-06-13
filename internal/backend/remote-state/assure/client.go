@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	leaseHeader = "x-ms-lease-id"
 	// Must be lower case
 	lockInfoMetaKey = "terraformlockid"
 )
