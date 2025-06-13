@@ -35,7 +35,7 @@ func (b *Backend) Workspaces(ctx context.Context) ([]string, error) {
 	defer cancel()
 
 	prefix := b.keyName + keyEnvPrefix
-	result, err := getPaginatedResults(ctx, b.containerClient, prefix, b.containerName)
+	result, err := getPaginatedResults(ctx, b.containerClient, prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ Error: %w
 You may have to force-unlock this state in order to use it again.
 `
 
-func getPaginatedResults(ctx context.Context, client *container.Client, prefix, containerName string) ([]string, error) {
+func getPaginatedResults(ctx context.Context, client *container.Client, prefix string) ([]string, error) {
 	count := 1
 	initialMarker := ""
 
