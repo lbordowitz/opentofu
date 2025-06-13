@@ -19,7 +19,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/lease"
-	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/go-uuid"
 	"github.com/opentofu/opentofu/internal/states/remote"
 	"github.com/opentofu/opentofu/internal/states/statemgr"
@@ -129,7 +128,7 @@ func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
 	getLockInfoErr := func(err error) error {
 		lockInfo, infoErr := c.getLockInfo()
 		if infoErr != nil {
-			err = multierror.Append(err, infoErr)
+			err = errors.Join(err, infoErr)
 		}
 
 		return &statemgr.LockError{
