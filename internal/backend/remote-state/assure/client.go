@@ -299,8 +299,8 @@ func (c *RemoteClient) leaseAccessCondition() *blob.AccessConditions {
 }
 
 func notFoundError(err error) bool {
-	var respErr azcore.ResponseError
-	return errors.As(err, &respErr) && respErr.StatusCode == 404
+	respErr, ok := err.(*azcore.ResponseError)
+	return ok && respErr.StatusCode == 404
 }
 
 func httpHeaders() *blob.HTTPHeaders {
