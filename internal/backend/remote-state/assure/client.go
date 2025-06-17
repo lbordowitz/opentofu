@@ -156,8 +156,7 @@ func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
 	}
 
 	// if the blob is already locked then error
-	// TODO double-check pointer stuff here
-	if *properties.LeaseStatus == lease.StatusTypeLocked {
+	if properties.LeaseStatus != nil && *properties.LeaseStatus == lease.StatusTypeLocked {
 		return "", getLockInfoErr(fmt.Errorf("state blob is already locked"))
 	}
 
@@ -187,7 +186,9 @@ func (c *RemoteClient) getLockInfo() (*statemgr.LockInfo, error) {
 
 	raw := properties.Metadata[lockInfoMetaKey]
 	if raw == nil || *raw == "" {
-		return nil, fmt.Errorf("blob metadata %q was empty", lockInfoMetaKey)
+		// TODO restore this original return
+		// return nil, fmt.Errorf("blob metadata %q was empty", lockInfoMetaKey)
+		return nil, fmt.Errorf("blob metadata %q was empty; metadata obj: %+v", lockInfoMetaKey, properties.Metadata)
 	}
 
 	data, err := base64.StdEncoding.DecodeString(*raw)
@@ -263,11 +264,16 @@ func (c *RemoteClient) Unlock(id string) error {
 	return nil
 }
 
-// getBlobProperties wraps the GetProperties method of the blobClient with timeout
+// getBlobProperties wraps the GetProperties method of the blobClient with timeout.
+// This method ensures the Metadata property of the response is set to a non-nil map.
 func (c *RemoteClient) getBlobProperties() (blob.GetPropertiesResponse, error) {
 	ctx, ctxCancel := c.getContextWithTimeout()
 	defer ctxCancel()
-	return c.blobClient.GetProperties(ctx, &blob.GetPropertiesOptions{AccessConditions: c.leaseAccessCondition()})
+	resp, err := c.blobClient.GetProperties(ctx, &blob.GetPropertiesOptions{AccessConditions: c.leaseAccessCondition()})
+	if err == nil && resp.Metadata == nil {
+		resp.Metadata = make(map[string]*string)
+	}
+	return resp, err
 }
 
 // getContextWithTimeout returns a context with timeout based on the timeoutSeconds
