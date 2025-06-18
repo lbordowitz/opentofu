@@ -131,9 +131,6 @@ func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
 		}
 	}
 
-	leaseOptions := &lease.BlobClientOptions{
-		LeaseID: &info.ID,
-	}
 	ctx, ctxCancel := c.getContextWithTimeout()
 	defer ctxCancel()
 
@@ -157,6 +154,10 @@ func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
 	// if the blob is already locked then error
 	if properties.LeaseStatus != nil && *properties.LeaseStatus == lease.StatusTypeLocked {
 		return "", getLockInfoErr(fmt.Errorf("state blob is already locked"))
+	}
+
+	leaseOptions := &lease.BlobClientOptions{
+		LeaseID: &info.ID,
 	}
 
 	// TODO check error
@@ -250,9 +251,11 @@ func (c *RemoteClient) Unlock(id string) error {
 
 	ctx, ctxCancel := c.getContextWithTimeout()
 	defer ctxCancel()
-	leaseClient, _ := lease.NewBlobClient(c.blobClient, &lease.BlobClientOptions{
+
+	leaseOptions := &lease.BlobClientOptions{
 		LeaseID: c.leaseID,
-	})
+	}
+	leaseClient, _ := lease.NewBlobClient(c.blobClient, leaseOptions)
 	// TODO check error more properly here
 	_, err = leaseClient.ReleaseLease(ctx, nil)
 	if err != nil {
