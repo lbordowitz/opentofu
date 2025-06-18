@@ -25,8 +25,7 @@ import (
 )
 
 const (
-	// Must be lower case
-	lockInfoMetaKey = "terraformlockid"
+	lockInfoMetaKey = "Terraformlockid"
 )
 
 type RemoteClient struct {
@@ -251,7 +250,9 @@ func (c *RemoteClient) Unlock(id string) error {
 
 	ctx, ctxCancel := c.getContextWithTimeout()
 	defer ctxCancel()
-	leaseClient, _ := lease.NewBlobClient(c.blobClient, nil)
+	leaseClient, _ := lease.NewBlobClient(c.blobClient, &lease.BlobClientOptions{
+		LeaseID: c.leaseID,
+	})
 	// TODO check error more properly here
 	_, err = leaseClient.ReleaseLease(ctx, nil)
 	if err != nil {
