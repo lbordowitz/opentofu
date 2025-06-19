@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/opentofu/opentofu/internal/backend"
 	"github.com/opentofu/opentofu/internal/states"
@@ -129,7 +130,11 @@ Error: %w
 You may have to force-unlock this state in order to use it again.
 `
 
-func getPaginatedResults(ctx context.Context, client *container.Client, prefix string) ([]string, error) {
+type azureClient interface {
+	NewListBlobsFlatPager(o *container.ListBlobsFlatOptions) *runtime.Pager[container.ListBlobsFlatResponse]
+}
+
+func getPaginatedResults(ctx context.Context, client azureClient, prefix string) ([]string, error) {
 	count := 1
 	initialMarker := ""
 

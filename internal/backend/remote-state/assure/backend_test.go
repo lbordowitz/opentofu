@@ -1,8 +1,11 @@
 package assure
 
 import (
+	"context"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/opentofu/opentofu/internal/backend"
 	"github.com/opentofu/opentofu/internal/encryption"
 )
@@ -92,5 +95,55 @@ func TestBackendConfig_Timeout(t *testing.T) {
 				t.Fatalf("Expected timeoutSeconds to be %d, got %d", tc.timeoutSeconds, int(be.timeout.Seconds()))
 			}
 		})
+	}
+}
+
+type mockClient struct{}
+
+func (p mockClient) NewListBlobsFlatPager(params *container.ListBlobsFlatOptions) *runtime.Pager[container.ListBlobsFlatResponse] {
+	env_name := "env-name"
+	blobDetails := make([]*container.BlobItem, 5000)
+	for i := range blobDetails {
+		blobDetails[i] = &container.BlobItem{}
+		blobDetails[i].Name = &env_name
+	}
+
+	returnMarker := "next-token"
+
+	// This function will be called first with an empty parameter, putting the returnMarker as "next-token".
+	// On the second call, the returnMarker won't be empty, then finishing the pagination function;
+	if *params.Marker != "" {
+		returnMarker = ""
+	}
+
+	return runtime.NewPager(runtime.PagingHandler[container.ListBlobsFlatResponse]{
+		More: func(resp container.ListBlobsFlatResponse) bool {
+			return *resp.Marker == ""
+		},
+		Fetcher: func(context.Context, *container.ListBlobsFlatResponse) (container.ListBlobsFlatResponse, error) {
+			return container.ListBlobsFlatResponse{
+				ListBlobsFlatSegmentResponse: container.ListBlobsFlatSegmentResponse{
+					Segment: &container.BlobFlatListSegment{
+						BlobItems: blobDetails,
+					},
+					Marker:     params.Marker,
+					NextMarker: &returnMarker,
+				},
+			}, nil
+		},
+	})
+}
+
+func TestBackendPagination(t *testing.T) {
+	ctx := context.Background()
+	client := &mockClient{}
+	result, err := getPaginatedResults(ctx, client, "env")
+	if err != nil {
+		t.Fatalf("error getting paginated results %q", err)
+	}
+
+	// default is always on the list + 10k generated blobs from the mocked ListBlobs
+	if len(result) != 10001 {
+		t.Fatalf("expected len 10001, got %d instead", len(result))
 	}
 }
