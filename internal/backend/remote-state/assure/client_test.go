@@ -1,14 +1,19 @@
 package assure
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
+	msgraph "github.com/microsoftgraph/msgraph-sdk-go"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
+	"github.com/google/uuid"
 	"github.com/opentofu/opentofu/internal/legacy/helper/acctest"
 	"github.com/opentofu/opentofu/internal/states/remote"
 )
@@ -35,6 +40,7 @@ func TestPutMaintainsMetadata(t *testing.T) {
 	}
 	resourceGroupClient := resourcesClientFactory.NewResourceGroupsClient()
 
+	// TODO check error here
 	resourceGroupClient.CreateOrUpdate(t.Context(), res.resourceGroup, armresources.ResourceGroup{Location: &res.location}, nil)
 	storageClientFactory, err := armstorage.NewClientFactory(res.subscriptionID, authCred, nil)
 	if err != nil {
@@ -63,13 +69,51 @@ func TestPutMaintainsMetadata(t *testing.T) {
 
 	// TODO check error here
 	containerClient.Create(t.Context(), nil)
+
+	// TODO REMOVE THIS from here...
+	authZFactory, err := armauthorization.NewClientFactory(res.subscriptionID, authCred, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get information about the current principal
+	// TODO is any of this even correct?
+	// TODO double-check scopes
+	graphClient, err := msgraph.NewGraphServiceClientWithCredentials(authCred, []string{"Files.Read"})
+	user, err := graphClient.Me().Get(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	principalType := armauthorization.PrincipalType(*user.GetUserType())
+
+	storageBlobDataContributorRoleID := "ba92f5b4-2d11-453d-a403-e96b0029c9fe"
+
+	authZClient := authZFactory.NewRoleAssignmentsClient()
+	_, err = authZClient.Create(
+		t.Context(),
+		res.roleScope(),
+		uuid.New().String(),
+		armauthorization.RoleAssignmentCreateParameters{
+			Properties: &armauthorization.RoleAssignmentProperties{
+				PrincipalID:      user.GetId(),
+				PrincipalType:    &principalType,
+				RoleDefinitionID: to.Ptr(res.roleInSub(storageBlobDataContributorRoleID)),
+			},
+		},
+		&armauthorization.RoleAssignmentsClientCreateOptions{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ... to here
+
 	// END TEST RESOURCE CREATE
 	t.Cleanup(func() {
-		future, err := resourceGroupClient.BeginDelete(t.Context(), res.resourceGroup, nil)
+		future, err := resourceGroupClient.BeginDelete(context.Background(), res.resourceGroup, nil)
 		if err != nil {
 			t.Fatalf("Error deleting Resource Group: %v", err)
 		}
-		_, err = future.PollUntilDone(t.Context(), nil)
+		_, err = future.PollUntilDone(context.Background(), nil)
 		if err != nil {
 			t.Fatalf("Error waiting for the deletion of Resource Group: %v", err)
 		}
