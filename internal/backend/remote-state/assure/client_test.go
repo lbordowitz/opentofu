@@ -78,8 +78,8 @@ func TestPutMaintainsMetadata(t *testing.T) {
 
 	// Get information about the current principal
 	// TODO is any of this even correct?
-	// TODO double-check scopes
-	graphClient, err := msgraph.NewGraphServiceClientWithCredentials(authCred, []string{"Files.Read"})
+	// TODO double-check scopes. This is GUID for Application.Read.All scope
+	graphClient, err := msgraph.NewGraphServiceClientWithCredentials(authCred, []string{"9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30"})
 	user, err := graphClient.Me().Get(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
