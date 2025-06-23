@@ -14,6 +14,7 @@ import (
 	"github.com/opentofu/opentofu/internal/encryption"
 	"github.com/opentofu/opentofu/internal/legacy/helper/schema"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 )
 
@@ -286,10 +287,48 @@ func (b *Backend) configure(ctx context.Context) error {
 	}
 
 	// TODO check error
-	authCred, _ := getAuthCredentials(ctx, &config)
+	authCred, err := getAuthCredentials(ctx, &config)
+	if err != nil {
+		return err
+	}
 	// TODO do we need to ensure this is properly url encoded? That the account name is a proper account name?
 	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", b.accountName, b.containerName)
-	containerClient, err := container.NewClient(containerURL, authCred, nil)
+	// TODO check err
+	// bootstrapContainerClient, err := container.NewClient(containerURL, authCred, nil)
+	// if err != nil {
+	// 	return err
+	// }
+	// TODO: check if this is correct, maybe we'll add it in!
+	// if config.UseAzureADAuthentication {
+	// 	b.containerClient = bootstrapContainerClient
+	// 	return nil
+	// }
+
+	// use auth cred to bootstrap Storage Account Shared Key Auth
+	subscriptionId := config.SubscriptionID
+	if subscriptionId == "" {
+		// TODO check error
+		subscriptionId, err = getCliAzureSubscriptionID(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	// List keys
+	clientFactory, err := armstorage.NewClientFactory(subscriptionId, authCred, nil)
+	accountsClient := clientFactory.NewAccountsClient()
+	// TODO CHECK ERROR!!!
+	keys, err := accountsClient.ListKeys(ctx, config.ResourceGroupName, config.StorageAccountName, nil)
+	if err != nil {
+		return err
+	}
+	// TODO sketchy pointer stuff here, double-check it
+	sharedKeyCredential, err := container.NewSharedKeyCredential(b.accountName, *keys.Keys[0].Value)
+	if err != nil {
+		return err
+	}
+	// containerClient, err := container.NewClient(containerURL, authCred, nil)
+	containerClient, err := container.NewClientWithSharedKeyCredential(containerURL, sharedKeyCredential, nil)
 
 	if err != nil {
 		return err
