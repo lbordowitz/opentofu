@@ -6,14 +6,10 @@ import (
 	"testing"
 	"time"
 
-	msgraph "github.com/microsoftgraph/msgraph-sdk-go"
-
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
-	"github.com/google/uuid"
 	"github.com/opentofu/opentofu/internal/legacy/helper/acctest"
 	"github.com/opentofu/opentofu/internal/states/remote"
 )
@@ -28,7 +24,6 @@ func TestPutMaintainsMetadata(t *testing.T) {
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
 
-	// TODO copied out of backend.go, maybe we should refactor it to make it DRY? Do some sort of client helper function?
 	// TODO check error
 	authCred, _ := getAuthCredentials(t.Context(), nil)
 
@@ -63,49 +58,23 @@ func TestPutMaintainsMetadata(t *testing.T) {
 		t.Fatalf("failed waiting for the creation of storage account: %v", err)
 	}
 	// TODO this is copied from backend.go as well.
-	// TODO do we need to ensure this is properly url encoded? That the account name is a proper account name?
+	// TODO CHECK ERROR!!!
+	keys, err := accountsClient.ListKeys(t.Context(), res.resourceGroup, res.storageAccountName, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// TODO sketchy pointer stuff here, double-check it
+	sharedKeyCredential, err := container.NewSharedKeyCredential(res.storageAccountName, *keys.Keys[0].Value)
+	if err != nil {
+		t.Fatal(err)
+	}
 	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", res.storageAccountName, res.storageContainerName)
-	containerClient, _ := container.NewClient(containerURL, authCred, nil)
+
+	// containerClient, err := container.NewClient(containerURL, authCred, nil)
+	containerClient, err := container.NewClientWithSharedKeyCredential(containerURL, sharedKeyCredential, nil)
 
 	// TODO check error here
 	containerClient.Create(t.Context(), nil)
-
-	// TODO REMOVE THIS from here...
-	authZFactory, err := armauthorization.NewClientFactory(res.subscriptionID, authCred, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Get information about the current principal
-	// TODO is any of this even correct?
-	// TODO double-check scopes. This is GUID for Application.Read.All scope
-	graphClient, err := msgraph.NewGraphServiceClientWithCredentials(authCred, []string{"9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30"})
-	user, err := graphClient.Me().Get(t.Context(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	principalType := armauthorization.PrincipalType(*user.GetUserType())
-
-	storageBlobDataContributorRoleID := "ba92f5b4-2d11-453d-a403-e96b0029c9fe"
-
-	authZClient := authZFactory.NewRoleAssignmentsClient()
-	_, err = authZClient.Create(
-		t.Context(),
-		res.roleScope(),
-		uuid.New().String(),
-		armauthorization.RoleAssignmentCreateParameters{
-			Properties: &armauthorization.RoleAssignmentProperties{
-				PrincipalID:      user.GetId(),
-				PrincipalType:    &principalType,
-				RoleDefinitionID: to.Ptr(res.roleInSub(storageBlobDataContributorRoleID)),
-			},
-		},
-		&armauthorization.RoleAssignmentsClientCreateOptions{},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// ... to here
 
 	// END TEST RESOURCE CREATE
 	t.Cleanup(func() {
@@ -161,7 +130,7 @@ func TestPutMaintainsMetadata(t *testing.T) {
 		t.Fatalf("Error loading Metadata: %+v", err)
 	}
 
-	if *blobReference.Metadata[headerName] != expectedValue {
+	if metaval, ok := blobReference.Metadata[headerName]; !ok || *metaval != expectedValue {
 		t.Fatalf("%q was not set to %q in the Metadata: %+v", headerName, expectedValue, blobReference.Metadata)
 	}
 }
