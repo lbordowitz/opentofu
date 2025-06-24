@@ -2,12 +2,14 @@ package assure
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/opentofu/opentofu/internal/backend"
 	"github.com/opentofu/opentofu/internal/encryption"
+	"github.com/opentofu/opentofu/internal/legacy/helper/acctest"
 )
 
 func TestBackend_impl(t *testing.T) {
@@ -146,4 +148,34 @@ func TestBackendPagination(t *testing.T) {
 	if len(result) != 10001 {
 		t.Fatalf("expected len 10001, got %d instead", len(result))
 	}
+}
+
+// TestAccBackendAccessKeyBasic tests if resources are created using basic access key.
+// The call to backend.TestBackendStates tests workspace creation, list and deletion.
+func TestAccBackendAccessKeyBasic(t *testing.T) {
+	testAccAzureBackend(t)
+	rs := acctest.RandString(4)
+	res := testResourceNames(rs, "testState")
+	// TODO check error
+	authCred, _ := getAuthCredentials(t.Context(), nil)
+
+	resourceGroupClient, _, err := createTestResources(t, &res, authCred)
+
+	t.Cleanup(func() {
+		destroyTestResources(t, resourceGroupClient, res)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"access_key":           res.storageAccountAccessKey,
+		"environment":          os.Getenv("ARM_ENVIRONMENT"), // TODO should we have this?
+		"endpoint":             os.Getenv("ARM_ENDPOINT"),    // TODO should we have this?
+	})).(*Backend)
+
+	backend.TestBackendStates(t, b)
 }
