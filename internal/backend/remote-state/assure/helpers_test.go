@@ -45,18 +45,6 @@ func (r resourceNames) roleInSub(roleID string) string {
 	)
 }
 
-//				//		RoleDefinitionID: to.Ptr(),
-
-func (r resourceNames) roleScope() string {
-	return fmt.Sprintf(
-		"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s/blobServices/default/containers/%s",
-		r.subscriptionID,
-		r.resourceGroup,
-		r.storageAccountName,
-		r.storageContainerName,
-	)
-}
-
 func testResourceNames(rString string, keyName string) resourceNames {
 	return resourceNames{
 		subscriptionID:       os.Getenv("ARM_SUBSCRIPTION_ID"),

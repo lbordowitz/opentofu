@@ -291,18 +291,22 @@ func (b *Backend) configure(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// TODO refactor ALL of this authentication stuff with shared keys into the auth package or something.
 	// TODO do we need to ensure this is properly url encoded? That the account name is a proper account name?
 	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", b.accountName, b.containerName)
-	// TODO check err
-	// bootstrapContainerClient, err := container.NewClient(containerURL, authCred, nil)
-	// if err != nil {
-	// 	return err
-	// }
+
 	// TODO: check if this is correct, maybe we'll add it in!
-	// if config.UseAzureADAuthentication {
-	// 	b.containerClient = bootstrapContainerClient
-	// 	return nil
-	// }
+	/*
+		if config.UseAzureADAuthentication {
+			// TODO check err
+			bootstrapContainerClient, err := container.NewClient(containerURL, authCred, nil)
+			if err != nil {
+				return err
+			}
+			b.containerClient = bootstrapContainerClient
+			return nil
+		}
+	*/
 
 	// use auth cred to bootstrap Storage Account Shared Key Auth
 	subscriptionId := config.SubscriptionID
@@ -327,9 +331,8 @@ func (b *Backend) configure(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// containerClient, err := container.NewClient(containerURL, authCred, nil)
+	// TODO check error
 	containerClient, err := container.NewClientWithSharedKeyCredential(containerURL, sharedKeyCredential, nil)
-
 	if err != nil {
 		return err
 	}

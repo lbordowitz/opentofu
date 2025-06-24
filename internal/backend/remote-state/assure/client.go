@@ -187,9 +187,7 @@ func (c *RemoteClient) getLockInfo() (*statemgr.LockInfo, error) {
 
 	raw := properties.Metadata[lockInfoMetaKey]
 	if raw == nil || *raw == "" {
-		// TODO restore this original return
-		// return nil, fmt.Errorf("blob metadata %q was empty", lockInfoMetaKey)
-		return nil, fmt.Errorf("blob metadata %q was empty; metadata obj: %+v", lockInfoMetaKey, properties.Metadata)
+		return nil, fmt.Errorf("blob metadata %q was empty", lockInfoMetaKey)
 	}
 
 	data, err := base64.StdEncoding.DecodeString(*raw)
