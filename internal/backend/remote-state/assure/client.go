@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -274,10 +275,24 @@ func (c *RemoteClient) getBlobProperties() (blob.GetPropertiesResponse, error) {
 	ctx, ctxCancel := c.getContextWithTimeout()
 	defer ctxCancel()
 	resp, err := c.blobClient.GetProperties(ctx, &blob.GetPropertiesOptions{AccessConditions: c.leaseAccessCondition()})
-	if err == nil && resp.Metadata == nil {
-		resp.Metadata = make(map[string]*string)
+	if err == nil {
+		resp.Metadata = fixMetadata(resp.Metadata)
 	}
 	return resp, err
+}
+
+// fixMetadata ensures the Metadata property of the response is set to a non-nil map.
+// It also lower-cases all existing metadata headers to keep it compatible with the Giovanni client
+// which was used in the previous version of azurerm.
+func fixMetadata(metadata map[string]*string) map[string]*string {
+	output := make(map[string]*string)
+	if metadata == nil {
+		return output
+	}
+	for k, v := range metadata {
+		output[strings.ToLower(k)] = v
+	}
+	return output
 }
 
 // getContextWithTimeout returns a context with timeout based on the timeoutSeconds

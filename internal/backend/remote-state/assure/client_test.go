@@ -99,8 +99,13 @@ func TestPutMaintainsMetadata(t *testing.T) {
 		t.Fatalf("Error Creating Block Blob: %+v", err)
 	}
 
+	remoteClient := RemoteClient{
+		blobClient: blobClient,
+		timeout:    time.Duration(180) * time.Second,
+	}
+
 	// GET PROPERTIES
-	blobReference, err := blobClient.GetProperties(t.Context(), nil)
+	blobReference, err := remoteClient.getBlobProperties()
 	if err != nil {
 		t.Fatalf("Error loading Metadata: %+v", err)
 	}
@@ -113,19 +118,14 @@ func TestPutMaintainsMetadata(t *testing.T) {
 		t.Fatalf("Error setting Metadata: %+v", err)
 	}
 
-	// UPDATE WITH REMOTE CLIENT PUT
-	remoteClient := RemoteClient{
-		blobClient: blobClient,
-		timeout:    time.Duration(180) * time.Second,
-	}
+	// UPDATE WITH PUT
 	bytes := []byte(acctest.RandString(20))
 	err = remoteClient.Put(bytes)
 	if err != nil {
 		t.Fatalf("Error putting data: %+v", err)
 	}
 	// CHECK METADATA AGAIN, SEE THAT IT IS NOT SQUOOSHED
-
-	blobReference, err = blobClient.GetProperties(t.Context(), nil)
+	blobReference, err = remoteClient.getBlobProperties()
 	if err != nil {
 		t.Fatalf("Error loading Metadata: %+v", err)
 	}
