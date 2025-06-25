@@ -2,7 +2,6 @@ package assure
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -173,8 +172,9 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
 		"access_key":           res.storageAccountAccessKey,
-		"environment":          os.Getenv("ARM_ENVIRONMENT"), // TODO should we have this?
-		"endpoint":             os.Getenv("ARM_ENDPOINT"),    // TODO should we have this?
+		// These are commented-out; the config will pick up on them anyway, so no need to specify here.
+		// "environment":          os.Getenv("ARM_ENVIRONMENT"),
+		// "endpoint":             os.Getenv("ARM_ENDPOINT"),
 	})).(*Backend)
 
 	backend.TestBackendStates(t, b)

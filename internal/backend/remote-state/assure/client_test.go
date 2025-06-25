@@ -1,7 +1,6 @@
 package assure
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -101,8 +100,9 @@ func TestRemoteClientAccessKeyBasic(t *testing.T) {
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
 		"access_key":           res.storageAccountAccessKey,
-		"environment":          os.Getenv("ARM_ENVIRONMENT"),
-		"endpoint":             os.Getenv("ARM_ENDPOINT"),
+		// These are commented-out; the config will pick up on them anyway, so no need to specify here.
+		// "environment":          os.Getenv("ARM_ENVIRONMENT"),
+		// "endpoint":             os.Getenv("ARM_ENDPOINT"),
 	})).(*Backend)
 
 	state, err := b.StateMgr(t.Context(), backend.DefaultStateName)

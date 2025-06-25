@@ -318,16 +318,20 @@ func (b *Backend) configure(ctx context.Context) error {
 		}
 	}
 
-	// List keys
-	clientFactory, err := armstorage.NewClientFactory(subscriptionId, authCred, nil)
-	accountsClient := clientFactory.NewAccountsClient()
-	// TODO CHECK ERROR!!!
-	keys, err := accountsClient.ListKeys(ctx, config.ResourceGroupName, config.StorageAccountName, nil)
-	if err != nil {
-		return err
+	access_key := config.AccessKey
+	if access_key == "" {
+		// Lookup the key with an account client
+		clientFactory, err := armstorage.NewClientFactory(subscriptionId, authCred, nil)
+		accountsClient := clientFactory.NewAccountsClient()
+		// TODO CHECK ERROR!!!
+		keys, err := accountsClient.ListKeys(ctx, config.ResourceGroupName, config.StorageAccountName, nil)
+		if err != nil {
+			return err
+		}
+		// TODO sketchy pointer stuff here, double-check it
+		access_key = *keys.Keys[0].Value
 	}
-	// TODO sketchy pointer stuff here, double-check it
-	sharedKeyCredential, err := container.NewSharedKeyCredential(b.accountName, *keys.Keys[0].Value)
+	sharedKeyCredential, err := container.NewSharedKeyCredential(b.accountName, access_key)
 	if err != nil {
 		return err
 	}

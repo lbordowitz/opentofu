@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	lockInfoMetaKey = "Terraformlockid"
+	lockInfoMetaKey = "terraformlockid"
 )
 
 type RemoteClient struct {
