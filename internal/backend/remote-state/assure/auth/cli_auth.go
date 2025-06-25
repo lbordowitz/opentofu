@@ -1,46 +1,20 @@
-package assure
+package auth
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 )
-
-/*
-TODO: provide auth credentials from config, in the following order:
-    azidentity.NewClientCertificateCredential()
-    azidentity.NewClientSecretCredential()
-    azidentity.NewClientAssertionCredential() -> OIDC, plus OIDC via token request
-    azidentity.NewManagedIdentityCredential()
-    azidentity.NewAzureCLICredential()
-*/
-
-func getAuthCredentials(ctx context.Context, config *BackendConfig) (*azidentity.AzureCLICredential, error) {
-	return azidentity.NewAzureCLICredential(nil)
-}
-
-type Subscription struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	IsDefault bool   `json:"isDefault"`
-}
-
-type Profile struct {
-	Subscriptions []Subscription `json:"subscriptions"`
-}
 
 // getCliAzureSubscriptionID obtains the subscription ID currently active in the
 // Azure profile. This assumes the user has an Azure profile saved to their
 // home directory, which is usually provided by the Azure command line tool when
 // using `az login`.
 // TODO make sure this is compatible with Windows
-func getCliAzureSubscriptionID() (string, error) {
+func GetCliAzureSubscriptionID() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err

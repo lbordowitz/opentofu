@@ -7,6 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/opentofu/opentofu/internal/backend"
+	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/auth"
 	"github.com/opentofu/opentofu/internal/encryption"
 	"github.com/opentofu/opentofu/internal/legacy/helper/acctest"
 )
@@ -156,7 +157,7 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
 
-	authCred, err := getAuthCredentials(t.Context(), nil)
+	authCred, err := auth.GetAuthCredentials(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/opentofu/opentofu/internal/backend"
 	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/auth"
+	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/config"
 	"github.com/opentofu/opentofu/internal/encryption"
 	"github.com/opentofu/opentofu/internal/legacy/helper/schema"
 
@@ -221,33 +222,6 @@ type Backend struct {
 	timeout         time.Duration
 }
 
-type BackendConfig struct {
-	// Required
-	StorageAccountName string
-
-	// Optional
-	AccessKey                     string
-	ClientID                      string
-	ClientCertificatePassword     string
-	ClientCertificatePath         string
-	ClientSecret                  string
-	CustomResourceManagerEndpoint string
-	MetadataHost                  string
-	Environment                   string
-	MsiEndpoint                   string
-	OIDCToken                     string
-	OIDCTokenFilePath             string
-	OIDCRequestURL                string
-	OIDCRequestToken              string
-	ResourceGroupName             string
-	SasToken                      string
-	SubscriptionID                string
-	TenantID                      string
-	UseMsi                        bool
-	UseOIDC                       bool
-	UseAzureADAuthentication      bool
-}
-
 func (b *Backend) configure(ctx context.Context) error {
 	if b.containerName != "" {
 		return nil
@@ -261,7 +235,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	b.snapshot = data.Get("snapshot").(bool)
 	b.timeout = time.Duration(data.Get("timeout_seconds").(int)) * time.Second
 
-	config := BackendConfig{
+	config := config.BackendConfig{
 		AccessKey:                     data.Get("access_key").(string),
 		ClientID:                      data.Get("client_id").(string),
 		ClientCertificatePassword:     data.Get("client_certificate_password").(string),
@@ -285,7 +259,7 @@ func (b *Backend) configure(ctx context.Context) error {
 		UseAzureADAuthentication:      data.Get("use_azuread_auth").(bool),
 	}
 
-	authCred, err := getAuthCredentials(ctx, &config)
+	authCred, err := auth.GetAuthCredentials(ctx, &config)
 	if err != nil {
 		return fmt.Errorf("error getting auth credentials: %w", err)
 	}
@@ -306,7 +280,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	// use auth cred to bootstrap Storage Account Shared Key Auth
 	subscriptionID := config.SubscriptionID
 	if subscriptionID == "" {
-		subscriptionID, err = getCliAzureSubscriptionID()
+		subscriptionID, err = auth.GetCliAzureSubscriptionID()
 		if err != nil {
 			return err
 		}
