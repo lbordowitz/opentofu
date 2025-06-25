@@ -65,6 +65,7 @@ func NewContainerClientWithSharedKeyCredentialAndKey(ctx context.Context, names 
 	if err != nil {
 		return nil, "", fmt.Errorf("error creating credential from shared access key: %w", err)
 	}
+	// TODO we may want to do further error and name checking on this URL
 	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", names.StorageAccount, names.StorageContainer)
 
 	containerClient, err := container.NewClientWithSharedKeyCredential(containerURL, sharedKeyCredential, nil)
