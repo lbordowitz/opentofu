@@ -95,7 +95,7 @@ func TestRemoteClientAccessKeyBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+	b1 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
 		"storage_account_name": res.storageAccountName,
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
@@ -105,10 +105,24 @@ func TestRemoteClientAccessKeyBasic(t *testing.T) {
 		// "endpoint":             os.Getenv("ARM_ENDPOINT"),
 	})).(*Backend)
 
-	state, err := b.StateMgr(t.Context(), backend.DefaultStateName)
+	s1, err := b1.StateMgr(t.Context(), backend.DefaultStateName)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	remote.TestClient(t, state.(*remote.State).Client)
+	remote.TestClient(t, s1.(*remote.State).Client)
+
+	b2 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"access_key":           res.storageAccountAccessKey,
+	})).(*Backend)
+
+	s2, err := b2.StateMgr(t.Context(), backend.DefaultStateName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	remote.TestRemoteLocks(t, s1.(*remote.State).Client, s2.(*remote.State).Client)
 }

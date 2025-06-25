@@ -167,7 +167,7 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+	b1 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
 		"storage_account_name": res.storageAccountName,
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
@@ -177,5 +177,16 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 		// "endpoint":             os.Getenv("ARM_ENDPOINT"),
 	})).(*Backend)
 
-	backend.TestBackendStates(t, b)
+	backend.TestBackendStates(t, b1)
+
+	b2 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"access_key":           res.storageAccountAccessKey,
+	})).(*Backend)
+
+	// TestBackendStateForceUnlock runs the both the TestBackendStateLocks test and the --force-unlock tests
+	// backend.TestBackendStateLocks(t, b1, b2)
+	backend.TestBackendStateForceUnlock(t, b1, b2)
 }
