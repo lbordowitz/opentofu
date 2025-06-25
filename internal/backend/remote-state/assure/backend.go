@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/opentofu/opentofu/internal/backend"
+	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/auth"
 	"github.com/opentofu/opentofu/internal/encryption"
 	"github.com/opentofu/opentofu/internal/legacy/helper/schema"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 )
 
@@ -214,9 +214,9 @@ type Backend struct {
 
 	// The fields below are set from configure
 	containerClient *container.Client
-	containerName   string
+	containerName   string // TODO do we really need this?
 	keyName         string
-	accountName     string
+	accountName     string // TODO do we really need this?
 	snapshot        bool
 	timeout         time.Duration
 }
@@ -248,7 +248,6 @@ type BackendConfig struct {
 	UseAzureADAuthentication      bool
 }
 
-//nolint:errcheck //at this stage type conversion is safe
 func (b *Backend) configure(ctx context.Context) error {
 	if b.containerName != "" {
 		return nil
@@ -286,14 +285,10 @@ func (b *Backend) configure(ctx context.Context) error {
 		UseAzureADAuthentication:      data.Get("use_azuread_auth").(bool),
 	}
 
-	// TODO check error
 	authCred, err := getAuthCredentials(ctx, &config)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting auth credentials: %w", err)
 	}
-	// TODO refactor ALL of this authentication stuff with shared keys into the auth package or something.
-	// TODO do we need to ensure this is properly url encoded? That the account name is a proper account name?
-	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", b.accountName, b.containerName)
 
 	// TODO: check if this is correct, maybe we'll add it in!
 	/*
@@ -309,34 +304,27 @@ func (b *Backend) configure(ctx context.Context) error {
 	*/
 
 	// use auth cred to bootstrap Storage Account Shared Key Auth
-	subscriptionId := config.SubscriptionID
-	if subscriptionId == "" {
-		// TODO check error
-		subscriptionId, err = getCliAzureSubscriptionID()
+	subscriptionID := config.SubscriptionID
+	if subscriptionID == "" {
+		subscriptionID, err = getCliAzureSubscriptionID()
 		if err != nil {
 			return err
 		}
 	}
 
-	access_key := config.AccessKey
-	if access_key == "" {
-		// Lookup the key with an account client
-		clientFactory, err := armstorage.NewClientFactory(subscriptionId, authCred, nil)
-		accountsClient := clientFactory.NewAccountsClient()
-		// TODO CHECK ERROR!!!
-		keys, err := accountsClient.ListKeys(ctx, config.ResourceGroupName, config.StorageAccountName, nil)
-		if err != nil {
-			return err
-		}
-		// TODO sketchy pointer stuff here, double-check it
-		access_key = *keys.Keys[0].Value
-	}
-	sharedKeyCredential, err := container.NewSharedKeyCredential(b.accountName, access_key)
-	if err != nil {
-		return err
-	}
-	// TODO check error
-	containerClient, err := container.NewClientWithSharedKeyCredential(containerURL, sharedKeyCredential, nil)
+	containerClient, err := auth.NewContainerClientWithSharedKeyCredential(
+		ctx,
+		auth.StorageContainerNames{
+			SubscriptionID:   subscriptionID,
+			StorageAccount:   b.accountName,
+			ResourceGroup:    config.ResourceGroupName,
+			StorageContainer: b.containerName,
+		},
+		auth.StorageCredentials{
+			StorageAccessKey: config.AccessKey,
+			AuthCred:         authCred,
+		},
+	)
 	if err != nil {
 		return err
 	}

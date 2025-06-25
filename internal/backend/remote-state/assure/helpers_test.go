@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
+	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/auth"
 )
 
 // verify that we are doing ACC tests or the Azure tests specifically
@@ -41,7 +42,6 @@ type resourceNames struct {
 	storageContainerName    string
 	storageKeyName          string
 	storageAccountAccessKey string
-	// useAzureADAuth          bool
 }
 
 func testResourceNames(rString string, keyName string) resourceNames {
@@ -52,25 +52,21 @@ func testResourceNames(rString string, keyName string) resourceNames {
 		storageAccountName:   fmt.Sprintf("acctestsa%s", rString),
 		storageContainerName: "acctestcont",
 		storageKeyName:       keyName,
-		// useAzureADAuth:       false,
 	}
 }
 
 func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.AzureCLICredential) (*armresources.ResourceGroupsClient, *container.Client, error) {
-	resourcesClientFactory, err := armresources.NewClientFactory(res.subscriptionID, authCred, nil)
-	//TODO check error here
-	if err != nil {
-		return nil, nil, err
-	}
-	resourceGroupClient := resourcesClientFactory.NewResourceGroupsClient()
+	resourceGroupClient, err := auth.NewResourceClient(authCred, res.subscriptionID)
 
-	// TODO check error here
-	resourceGroupClient.CreateOrUpdate(t.Context(), res.resourceGroup, armresources.ResourceGroup{Location: &res.location}, nil)
-	storageClientFactory, err := armstorage.NewClientFactory(res.subscriptionID, authCred, nil)
+	_, err = resourceGroupClient.CreateOrUpdate(t.Context(), res.resourceGroup, armresources.ResourceGroup{Location: &res.location}, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error error creating resource group: %w", err)
+	}
+
+	accountsClient, err := auth.NewStorageAccountsClient(authCred, res.subscriptionID)
 	if err != nil {
 		return nil, nil, err
 	}
-	accountsClient := storageClientFactory.NewAccountsClient()
 	future, err := accountsClient.BeginCreate(t.Context(), res.resourceGroup, res.storageAccountName, armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
 		Location: &res.location,
@@ -86,27 +82,32 @@ func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed waiting for the creation of storage account: %v", err)
 	}
-	// TODO this is copied from backend.go as well.
-	// TODO CHECK ERROR!!!
-	keys, err := accountsClient.ListKeys(t.Context(), res.resourceGroup, res.storageAccountName, nil)
+
+	containerClient, key, err := auth.NewContainerClientWithSharedKeyCredentialAndKey(
+		t.Context(),
+		auth.StorageContainerNames{
+			SubscriptionID:   res.subscriptionID,
+			StorageAccount:   res.storageAccountName,
+			ResourceGroup:    res.resourceGroup,
+			StorageContainer: res.storageContainerName,
+		},
+		auth.StorageCredentials{
+			StorageAccessKey: res.storageAccountAccessKey,
+			AuthCred:         authCred,
+		},
+	)
 	if err != nil {
 		return nil, nil, err
 	}
-	// TODO lots of sketchy pointer stuff here, double-check it
-	res.storageAccountAccessKey = *keys.Keys[0].Value
 
-	sharedKeyCredential, err := container.NewSharedKeyCredential(res.storageAccountName, res.storageAccountAccessKey)
+	// The storage account access key is used in some tests: we "return" it through the resource name pointer
+	res.storageAccountAccessKey = key
+
+	_, err = containerClient.Create(t.Context(), nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error creating storage container: %w", err)
 	}
-	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", res.storageAccountName, res.storageContainerName)
-
-	// containerClient, err := container.NewClient(containerURL, authCred, nil)
-	containerClient, err := container.NewClientWithSharedKeyCredential(containerURL, sharedKeyCredential, nil)
-
-	// TODO check error here
-	containerClient.Create(t.Context(), nil)
-	return resourceGroupClient, containerClient, err
+	return resourceGroupClient, containerClient, nil
 }
 
 func destroyTestResources(t *testing.T, resourceGroupClient *armresources.ResourceGroupsClient, res resourceNames) {
