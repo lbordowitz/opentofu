@@ -55,12 +55,17 @@ func testResourceNames(rString string, keyName string) resourceNames {
 	}
 }
 
+// createTestResources creates a resource group, a storage account, and a storage container.
+// Additionally, it sets the storageAccountAccessKey to a valid key on that storage account,
+// and returns a client for both the storage container and the resource group (the latter for
+// cleanup purposes).
 func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.AzureCLICredential) (*armresources.ResourceGroupsClient, *container.Client, error) {
 	resourceGroupClient, err := auth.NewResourceClient(authCred, res.subscriptionID)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// Create Resource Group
 	_, err = resourceGroupClient.CreateOrUpdate(t.Context(), res.resourceGroup, armresources.ResourceGroup{Location: &res.location}, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error error creating resource group: %w", err)
@@ -70,6 +75,8 @@ func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.
 	if err != nil {
 		return nil, nil, err
 	}
+
+	// Create Storage Account
 	future, err := accountsClient.BeginCreate(t.Context(), res.resourceGroup, res.storageAccountName, armstorage.AccountCreateParameters{
 		Kind:     to.Ptr(armstorage.KindStorageV2),
 		Location: &res.location,
@@ -81,6 +88,7 @@ func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create test storage account: %v", err)
 	}
+	// Wait until the Storage Account is fully created
 	_, err = future.PollUntilDone(t.Context(), nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed waiting for the creation of storage account: %v", err)
@@ -106,6 +114,7 @@ func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.
 	// The storage account access key is used in some tests: we "return" it through the resource name pointer
 	res.storageAccountAccessKey = key
 
+	// Create a Storage Container
 	_, err = containerClient.Create(t.Context(), nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating storage container: %w", err)
