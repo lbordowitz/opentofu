@@ -57,6 +57,9 @@ func testResourceNames(rString string, keyName string) resourceNames {
 
 func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.AzureCLICredential) (*armresources.ResourceGroupsClient, *container.Client, error) {
 	resourceGroupClient, err := auth.NewResourceClient(authCred, res.subscriptionID)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	_, err = resourceGroupClient.CreateOrUpdate(t.Context(), res.resourceGroup, armresources.ResourceGroup{Location: &res.location}, nil)
 	if err != nil {
