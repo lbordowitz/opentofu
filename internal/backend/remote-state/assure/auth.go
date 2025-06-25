@@ -35,28 +35,33 @@ type Profile struct {
 	Subscriptions []Subscription `json:"subscriptions"`
 }
 
-// TODO make sure this is compatible with Windows, probably refactor a bunch, too.
-func getCliAzureSubscriptionID(ctx context.Context) (string, error) {
+// getCliAzureSubscriptionID obtains the subscription ID currently active in the
+// Azure profile. This assumes the user has an Azure profile saved to their
+// home directory, which is usually provided by the Azure command line tool when
+// using `az login`.
+// TODO make sure this is compatible with Windows
+func getCliAzureSubscriptionID() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 
-	file, err := os.Open(filepath.Join(home, ".azure", "azureProfile.json"))
+	azureProfileFilePath := filepath.Join(home, ".azure", "azureProfile.json")
+	file, err := os.Open(azureProfileFilePath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error opening azure profile at %s: %w", azureProfileFilePath, err)
 	}
-	raw_file, err := io.ReadAll(file)
+	rawFile, err := io.ReadAll(file)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error reading azure profile at %s: %w", azureProfileFilePath, err)
 	}
 	// Trim BOM
-	raw_file = bytes.TrimPrefix(raw_file, []byte("\xef\xbb\xbf"))
+	rawFile = bytes.TrimPrefix(rawFile, []byte("\xef\xbb\xbf"))
 
 	var profile Profile
-	err = json.Unmarshal(raw_file, &profile)
+	err = json.Unmarshal(rawFile, &profile)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("json error for azure profile at %s: %w", azureProfileFilePath, err)
 	}
 
 	for _, sub := range profile.Subscriptions {

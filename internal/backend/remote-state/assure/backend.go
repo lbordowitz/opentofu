@@ -312,7 +312,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	subscriptionId := config.SubscriptionID
 	if subscriptionId == "" {
 		// TODO check error
-		subscriptionId, err = getCliAzureSubscriptionID(ctx)
+		subscriptionId, err = getCliAzureSubscriptionID()
 		if err != nil {
 			return err
 		}

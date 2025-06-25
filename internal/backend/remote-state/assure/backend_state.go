@@ -55,7 +55,7 @@ func (b *Backend) DeleteWorkspace(ctx context.Context, name string, _ bool) erro
 
 	if _, err := blobClient.Delete(ctx, nil); err != nil {
 		if !notFoundError(err) {
-			return err
+			return fmt.Errorf("error deleting blob: %w", err)
 		}
 	}
 
@@ -150,7 +150,7 @@ func getPaginatedResults(ctx context.Context, client azureClient, prefix string)
 
 		resp, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error listing blobs: %w", err)
 		}
 
 		// Used to paginate blobs, saving the NextMarker result from ListBlobs

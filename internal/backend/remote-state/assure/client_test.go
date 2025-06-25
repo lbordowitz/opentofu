@@ -20,8 +20,10 @@ func TestPutMaintainsMetadata(t *testing.T) {
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
 
-	// TODO check error
-	authCred, _ := getAuthCredentials(t.Context(), nil)
+	authCred, err := getAuthCredentials(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	resourceGroupClient, containerClient, err := createTestResources(t, &res, authCred)
 
@@ -83,8 +85,11 @@ func TestRemoteClientAccessKeyBasic(t *testing.T) {
 	testAccAzureBackend(t)
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
-	// TODO check error
-	authCred, _ := getAuthCredentials(t.Context(), nil)
+
+	authCred, err := getAuthCredentials(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	resourceGroupClient, _, err := createTestResources(t, &res, authCred)
 
@@ -100,9 +105,6 @@ func TestRemoteClientAccessKeyBasic(t *testing.T) {
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
 		"access_key":           res.storageAccountAccessKey,
-		// These are commented-out; the config will pick up on them anyway, so no need to specify here.
-		// "environment":          os.Getenv("ARM_ENVIRONMENT"),
-		// "endpoint":             os.Getenv("ARM_ENDPOINT"),
 	})).(*Backend)
 
 	s1, err := b1.StateMgr(t.Context(), backend.DefaultStateName)

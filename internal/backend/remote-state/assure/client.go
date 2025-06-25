@@ -47,11 +47,14 @@ func (c *RemoteClient) Get() (*remote.Payload, error) {
 		if notFoundError(err) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("error downloading azure blob: %w", err)
 	}
 	defer resp.Body.Close()
-	// TODO check error here
-	data, _ := io.ReadAll(resp.Body)
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading azure blob: %w", err)
+	}
 
 	payload := &remote.Payload{
 		Data: data,
@@ -79,10 +82,8 @@ func (c *RemoteClient) Put(data []byte) error {
 	}
 
 	properties, err := c.getBlobProperties()
-	if err != nil {
-		if !notFoundError(err) {
-			return err
-		}
+	if err != nil && !notFoundError(err) {
+		return fmt.Errorf("error getting blob properties while doing Put: %w", err)
 	}
 
 	putOptions := &blockblob.UploadBufferOptions{
@@ -91,6 +92,9 @@ func (c *RemoteClient) Put(data []byte) error {
 		HTTPHeaders:      httpHeaders(),
 	}
 	_, err = c.blobClient.UploadBuffer(ctx, data, putOptions)
+	if err != nil {
+		err = fmt.Errorf("error uploading blob: %w", err)
+	}
 
 	return err
 }
@@ -99,10 +103,8 @@ func (c *RemoteClient) Delete() error {
 	ctx, ctxCancel := c.getContextWithTimeout()
 	defer ctxCancel()
 	_, err := c.blobClient.Delete(ctx, &blob.DeleteOptions{AccessConditions: c.leaseAccessCondition()})
-	if err != nil {
-		if !notFoundError(err) {
-			return err
-		}
+	if err != nil && !notFoundError(err) {
+		return fmt.Errorf("error deleting blob: %w", err)
 	}
 	return nil
 }
@@ -119,7 +121,6 @@ func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
 		info.ID = lockID
 	}
 
-	// TODO double-check this function
 	getLockInfoErr := func(err error) error {
 		lockInfo, infoErr := c.getLockInfo()
 		if infoErr != nil {
@@ -140,7 +141,7 @@ func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
 	if err != nil {
 		// error if we had issues getting the blob
 		if !notFoundError(err) {
-			return "", err
+			return "", fmt.Errorf("error getting blob properties while doing Lock: %w", err)
 		}
 		// if we don't find the blob, we need to build it
 		_, err = c.blobClient.UploadBuffer(ctx, []byte{}, &blockblob.UploadBufferOptions{
@@ -161,8 +162,10 @@ func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
 		LeaseID: &info.ID,
 	}
 
-	// TODO check error
-	leaseClient, _ := lease.NewBlobClient(c.blobClient, leaseOptions)
+	leaseClient, err := lease.NewBlobClient(c.blobClient, leaseOptions)
+	if err != nil {
+		return "", fmt.Errorf("error getting blob lease client: %w", err)
+	}
 	leaseResp, err := leaseClient.AcquireLease(ctx, -1, nil)
 
 	if err != nil {
@@ -182,7 +185,7 @@ func (c *RemoteClient) Lock(info *statemgr.LockInfo) (string, error) {
 func (c *RemoteClient) getLockInfo() (*statemgr.LockInfo, error) {
 	properties, err := c.getBlobProperties()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting lock info: %w", err)
 	}
 
 	raw := properties.Metadata[lockInfoMetaKey]
@@ -192,13 +195,13 @@ func (c *RemoteClient) getLockInfo() (*statemgr.LockInfo, error) {
 
 	data, err := base64.StdEncoding.DecodeString(*raw)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error in base64 decoding lock string: %w", err)
 	}
 
 	lockInfo := &statemgr.LockInfo{}
 	err = json.Unmarshal(data, lockInfo)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error decoding json data from lock: %w", err)
 	}
 
 	return lockInfo, nil
@@ -210,7 +213,7 @@ func (c *RemoteClient) writeLockInfo(info *statemgr.LockInfo) error {
 	defer ctxCancel()
 	properties, err := c.getBlobProperties()
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting blob properties while writing lock: %w", err)
 	}
 
 	if info == nil {
@@ -254,11 +257,15 @@ func (c *RemoteClient) Unlock(id string) error {
 	leaseOptions := &lease.BlobClientOptions{
 		LeaseID: c.leaseID,
 	}
-	leaseClient, _ := lease.NewBlobClient(c.blobClient, leaseOptions)
-	// TODO check error more properly here
+	leaseClient, err := lease.NewBlobClient(c.blobClient, leaseOptions)
+	if err != nil {
+		lockErr.Err = fmt.Errorf("error getting blob lease client: %w", err)
+		return lockErr
+	}
+
 	_, err = leaseClient.ReleaseLease(ctx, nil)
 	if err != nil {
-		lockErr.Err = err
+		lockErr.Err = fmt.Errorf("error when releasing lease for azure lock: %w", err)
 		return lockErr
 	}
 

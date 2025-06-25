@@ -155,8 +155,11 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 	testAccAzureBackend(t)
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
-	// TODO check error
-	authCred, _ := getAuthCredentials(t.Context(), nil)
+
+	authCred, err := getAuthCredentials(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	resourceGroupClient, _, err := createTestResources(t, &res, authCred)
 
@@ -172,9 +175,6 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
 		"access_key":           res.storageAccountAccessKey,
-		// These are commented-out; the config will pick up on them anyway, so no need to specify here.
-		// "environment":          os.Getenv("ARM_ENVIRONMENT"),
-		// "endpoint":             os.Getenv("ARM_ENDPOINT"),
 	})).(*Backend)
 
 	backend.TestBackendStates(t, b1)
@@ -187,6 +187,5 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 	})).(*Backend)
 
 	// TestBackendStateForceUnlock runs the both the TestBackendStateLocks test and the --force-unlock tests
-	// backend.TestBackendStateLocks(t, b1, b2)
 	backend.TestBackendStateForceUnlock(t, b1, b2)
 }
