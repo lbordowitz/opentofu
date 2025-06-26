@@ -7,7 +7,21 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/opentofu/opentofu/internal/tfdiags"
 )
+
+// TODO azidentity.NewAzureCLICredential()
+
+type azureCLICredentialAuth struct{}
+
+func (cred *azureCLICredentialAuth) Construct(config *Config) (azcore.TokenCredential, error) {
+	return nil, nil
+}
+func (cred *azureCLICredentialAuth) Validate(config *Config) tfdiags.Diagnostics {
+	return nil
+}
 
 // getCliAzureSubscriptionID obtains the subscription ID currently active in the
 // Azure profile. This assumes the user has an Azure profile saved to their

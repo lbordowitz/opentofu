@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
@@ -60,7 +60,7 @@ func testResourceNames(rString string, keyName string) resourceNames {
 // Additionally, it sets the storageAccountAccessKey to a valid key on that storage account,
 // and returns a client for both the storage container and the resource group (the latter for
 // cleanup purposes).
-func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.AzureCLICredential) (*armresources.ResourceGroupsClient, *container.Client, error) {
+func createTestResources(t *testing.T, res *resourceNames, authCred azcore.TokenCredential) (*armresources.ResourceGroupsClient, *container.Client, error) {
 	client := httpclient.New(t.Context())
 	resourceGroupClient, err := auth.NewResourceClient(client, authCred, res.subscriptionID)
 	if err != nil {

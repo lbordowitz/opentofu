@@ -295,7 +295,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	// Get auth credentials
 	authCred, err := auth.GetAuthCredentials(ctx, config)
 	if err != nil {
-		return fmt.Errorf("error getting auth credentials: %w", err)
+		return err
 	}
 
 	// If we use Azure AD (Entra ID) Auth, we're done!
