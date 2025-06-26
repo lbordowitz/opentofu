@@ -12,7 +12,6 @@ import (
 
 	"github.com/opentofu/opentofu/internal/backend"
 	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/auth"
-	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/config"
 	"github.com/opentofu/opentofu/internal/encryption"
 	"github.com/opentofu/opentofu/internal/legacy/helper/schema"
 
@@ -236,26 +235,33 @@ func (b *Backend) configure(ctx context.Context) error {
 
 	accessKey := data.Get("access_key").(string)
 	sasToken := data.Get("sas_token").(string)
+	useAzureADAuthentication := data.Get("use_azuread_auth").(bool)
 
-	config := config.BackendConfig{
-		ClientID:                      data.Get("client_id").(string),
-		ClientCertificatePassword:     data.Get("client_certificate_password").(string),
-		ClientCertificatePath:         data.Get("client_certificate_path").(string),
-		ClientSecret:                  data.Get("client_secret").(string),
+	config := auth.Config{
+		ClientBasicAuthConfig: auth.ClientBasicAuthConfig{
+			ClientID:     data.Get("client_id").(string),
+			ClientSecret: data.Get("client_secret").(string),
+		},
+		ClientCertificateAuthConfig: auth.ClientCertificateAuthConfig{
+			ClientCertificatePassword: data.Get("client_certificate_password").(string),
+			ClientCertificatePath:     data.Get("client_certificate_path").(string),
+		},
+		OIDCAuthConfig: auth.OIDCAuthConfig{
+			UseOIDC:           data.Get("use_oidc").(bool),
+			OIDCToken:         data.Get("oidc_token").(string),
+			OIDCTokenFilePath: data.Get("oidc_token_file_path").(string),
+			OIDCRequestURL:    data.Get("oidc_request_url").(string),
+			OIDCRequestToken:  data.Get("oidc_request_token").(string)},
+		MSIAuthConfig: auth.MSIAuthConfig{
+			UseMsi:      data.Get("use_msi").(bool),
+			MsiEndpoint: data.Get("msi_endpoint").(string),
+		},
 		CustomResourceManagerEndpoint: data.Get("endpoint").(string),
 		MetadataHost:                  data.Get("metadata_host").(string),
 		Environment:                   data.Get("environment").(string),
-		MsiEndpoint:                   data.Get("msi_endpoint").(string),
-		OIDCToken:                     data.Get("oidc_token").(string),
-		OIDCTokenFilePath:             data.Get("oidc_token_file_path").(string),
-		OIDCRequestURL:                data.Get("oidc_request_url").(string),
-		OIDCRequestToken:              data.Get("oidc_request_token").(string),
 		ResourceGroupName:             data.Get("resource_group_name").(string),
 		SubscriptionID:                data.Get("subscription_id").(string),
 		TenantID:                      data.Get("tenant_id").(string),
-		UseMsi:                        data.Get("use_msi").(bool),
-		UseOIDC:                       data.Get("use_oidc").(bool),
-		UseAzureADAuthentication:      data.Get("use_azuread_auth").(bool),
 	}
 
 	storageNames := auth.StorageContainerNames{
@@ -297,7 +303,7 @@ func (b *Backend) configure(ctx context.Context) error {
 
 	// If we use Azure AD (Entra ID) Auth, we're done!
 	// Just set up the client with these auth credentials
-	if config.UseAzureADAuthentication {
+	if useAzureADAuthentication {
 		bootstrapContainerClient, err := auth.NewContainerClient(ctx, storageNames, authCred)
 		if err != nil {
 			return fmt.Errorf("error getting container client: %w", err)

@@ -4,8 +4,21 @@ import (
 	"context"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/config"
 )
+
+type Config struct {
+	ClientBasicAuthConfig
+	ClientCertificateAuthConfig
+	OIDCAuthConfig
+	MSIAuthConfig
+	// TODO determine what to do with the rest of these
+	CustomResourceManagerEndpoint string
+	MetadataHost                  string
+	Environment                   string
+	ResourceGroupName             string
+	SubscriptionID                string
+	TenantID                      string
+}
 
 /*
 TODO: provide auth credentials from config, in the following order:
@@ -16,7 +29,7 @@ TODO: provide auth credentials from config, in the following order:
     azidentity.NewAzureCLICredential()
 */
 
-func GetAuthCredentials(ctx context.Context, config *config.BackendConfig) (*azidentity.AzureCLICredential, error) {
+func GetAuthCredentials(ctx context.Context, config *Config) (*azidentity.AzureCLICredential, error) {
 	return azidentity.NewAzureCLICredential(nil)
 }
 
