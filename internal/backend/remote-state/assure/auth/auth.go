@@ -44,13 +44,3 @@ func GetAuthCredentials(ctx context.Context, config *Config) (azcore.TokenCreden
 	})
 	return nil, diags.Err()
 }
-
-type Subscription struct {
-	Id        string `json:"id"`
-	Name      string `json:"name"`
-	IsDefault bool   `json:"isDefault"`
-}
-
-type Profile struct {
-	Subscriptions []Subscription `json:"subscriptions"`
-}

@@ -49,14 +49,14 @@ func NewStorageAccountsClient(client *http.Client, authCred azcore.TokenCredenti
 }
 
 type StorageAddresses struct {
-	CustomResourceManagerEndpoint string
-	Environment                   string
-	MetadataHost                  string
+	CustomResourceManagerEndpoint string // TODO check if used
+	Environment                   string // TODO check if used
+	MetadataHost                  string // TODO check if used
 	ResourceGroup                 string
 	StorageAccount                string
 	StorageContainer              string
 	SubscriptionID                string
-	TenantID                      string
+	TenantID                      string // TODO check if used
 }
 
 // NewContainerClientWithSharedKeyCredentialAndKey gets a container client authenticated with

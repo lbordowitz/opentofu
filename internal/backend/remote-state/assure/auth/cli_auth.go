@@ -9,25 +9,40 @@ import (
 	"path/filepath"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
-
-// TODO azidentity.NewAzureCLICredential()
 
 type azureCLICredentialAuth struct{}
 
 func (cred *azureCLICredentialAuth) Construct(config *Config) (azcore.TokenCredential, error) {
-	return nil, nil
+	// TODO is this enough?
+	return azidentity.NewAzureCLICredential(&azidentity.AzureCLICredentialOptions{
+		Subscription: config.StorageAddresses.SubscriptionID,
+		TenantID:     config.StorageAddresses.TenantID,
+	})
 }
 func (cred *azureCLICredentialAuth) Validate(config *Config) tfdiags.Diagnostics {
+	// TODO determine if there's anything here we need to validate
 	return nil
+}
+
+type Subscription struct {
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+type Profile struct {
+	Subscriptions []Subscription `json:"subscriptions"`
 }
 
 // getCliAzureSubscriptionID obtains the subscription ID currently active in the
 // Azure profile. This assumes the user has an Azure profile saved to their
 // home directory, which is usually provided by the Azure command line tool when
 // using `az login`.
-// TODO make sure this is compatible with Windows
+// # TODO make sure this is compatible with Windows
+// # TODO do we want to obtain anything else from the profile setting? Tenant ID, perhaps?
 func GetCliAzureSubscriptionID() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
