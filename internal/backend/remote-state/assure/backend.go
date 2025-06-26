@@ -234,8 +234,9 @@ func (b *Backend) configure(ctx context.Context) error {
 	b.snapshot = data.Get("snapshot").(bool)
 	b.timeout = time.Duration(data.Get("timeout_seconds").(int)) * time.Second
 
+	accessKey := data.Get("access_key").(string)
+
 	config := config.BackendConfig{
-		AccessKey:                     data.Get("access_key").(string),
 		ClientID:                      data.Get("client_id").(string),
 		ClientCertificatePassword:     data.Get("client_certificate_password").(string),
 		ClientCertificatePath:         data.Get("client_certificate_path").(string),
@@ -257,25 +258,48 @@ func (b *Backend) configure(ctx context.Context) error {
 		UseAzureADAuthentication:      data.Get("use_azuread_auth").(bool),
 	}
 
+	storageNames := auth.StorageContainerNames{
+		StorageAccount:   accountName,
+		ResourceGroup:    config.ResourceGroupName,
+		StorageContainer: b.containerName,
+	}
+
+	// Check for nonempty Storage Account Shared Access Key
+	if accessKey != "" {
+		containerClient, err := auth.NewContainerClientFromStorageAccessKey(ctx, storageNames, accessKey)
+		if err != nil {
+			return err
+		}
+
+		b.containerClient = containerClient
+		return nil
+	}
+
+	// Shared Access Key is empty
+	// Check for nonempty SAS Token
+	// TODO ^^ this
+
+	// Shared Access Key and SAS Token are empty
+	// Get auth credentials
 	authCred, err := auth.GetAuthCredentials(ctx, &config)
 	if err != nil {
 		return fmt.Errorf("error getting auth credentials: %w", err)
 	}
 
-	// TODO: check if this is correct, maybe we'll add it in!
-	/*
-		if config.UseAzureADAuthentication {
-			// TODO check err
-			bootstrapContainerClient, err := container.NewClient(containerURL, authCred, nil)
-			if err != nil {
-				return err
-			}
-			b.containerClient = bootstrapContainerClient
-			return nil
+	// If we use Azure AD (Entra ID) Auth, we're done!
+	// Just set up the client with these auth credentials
+	if config.UseAzureADAuthentication {
+		bootstrapContainerClient, err := auth.NewContainerClient(ctx, storageNames, authCred)
+		if err != nil {
+			return fmt.Errorf("error getting container client: %w", err)
 		}
-	*/
+		b.containerClient = bootstrapContainerClient
+		return nil
+	}
 
-	// use auth cred to bootstrap Storage Account Shared Key Auth
+	// Otherwise, use those credentials to bootstrap Storage Account Shared Key Auth
+	// We'll also need to set the Subscription ID
+	// TODO: should this logic be set into the CLI auth proper?
 	subscriptionID := config.SubscriptionID
 	if subscriptionID == "" {
 		subscriptionID, err = auth.GetCliAzureSubscriptionID()
@@ -283,22 +307,11 @@ func (b *Backend) configure(ctx context.Context) error {
 			return err
 		}
 	}
+	storageNames.SubscriptionID = subscriptionID
 
-	containerClient, err := auth.NewContainerClientWithSharedKeyCredential(
-		ctx,
-		auth.StorageContainerNames{
-			SubscriptionID:   subscriptionID,
-			StorageAccount:   accountName,
-			ResourceGroup:    config.ResourceGroupName,
-			StorageContainer: b.containerName,
-		},
-		auth.StorageCredentials{
-			StorageAccessKey: config.AccessKey,
-			AuthCred:         authCred,
-		},
-	)
+	containerClient, err := auth.NewContainerClientWithSharedKeyCredential(ctx, storageNames, authCred)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting container client: %w", err)
 	}
 
 	b.containerClient = containerClient

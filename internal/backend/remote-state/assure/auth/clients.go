@@ -14,7 +14,7 @@ import (
 	"github.com/opentofu/opentofu/internal/httpclient"
 )
 
-func ClientOptions(client *http.Client) policy.ClientOptions {
+func clientOptions(client *http.Client) policy.ClientOptions {
 	return policy.ClientOptions{
 		Telemetry: policy.TelemetryOptions{
 			Disabled: true,
@@ -23,9 +23,10 @@ func ClientOptions(client *http.Client) policy.ClientOptions {
 	}
 }
 
+// NewResourceClient gets a client for resource groups. This is strictly only used in testing.
 func NewResourceClient(client *http.Client, authCred azcore.TokenCredential, subscriptionID string) (*armresources.ResourceGroupsClient, error) {
 	resourcesClientFactory, err := armresources.NewClientFactory(subscriptionID, authCred, &arm.ClientOptions{
-		ClientOptions:         ClientOptions(client),
+		ClientOptions:         clientOptions(client),
 		DisableRPRegistration: false,
 	})
 	if err != nil {
@@ -34,9 +35,11 @@ func NewResourceClient(client *http.Client, authCred azcore.TokenCredential, sub
 	return resourcesClientFactory.NewResourceGroupsClient(), nil
 }
 
+// NewStorageAccountsClient gets a client for the storage account with the given auth credentials.
+// This should only be used for testing and internally within this package.
 func NewStorageAccountsClient(client *http.Client, authCred azcore.TokenCredential, subscriptionID string) (*armstorage.AccountsClient, error) {
 	storageClientFactory, err := armstorage.NewClientFactory(subscriptionID, authCred, &arm.ClientOptions{
-		ClientOptions:         ClientOptions(client),
+		ClientOptions:         clientOptions(client),
 		DisableRPRegistration: false,
 	})
 	if err != nil {
@@ -52,51 +55,70 @@ type StorageContainerNames struct {
 	StorageContainer string
 }
 
-type StorageCredentials struct {
-	StorageAccessKey string
-	AuthCred         azcore.TokenCredential
-}
-
 // NewContainerClientWithSharedKeyCredentialAndKey gets a container client authenticated with
-// a shared Storage Account Access Key.
-func NewContainerClientWithSharedKeyCredential(ctx context.Context, names StorageContainerNames, creds StorageCredentials) (*container.Client, error) {
-	containerClient, _, err := NewContainerClientWithSharedKeyCredentialAndKey(ctx, names, creds)
+// a shared Storage Account Access Key, using previously obtained authentication credentials to
+// obtain said key from the Storage Account.
+func NewContainerClientWithSharedKeyCredential(ctx context.Context, names StorageContainerNames, authCred azcore.TokenCredential) (*container.Client, error) {
+	containerClient, _, err := NewContainerClientWithSharedKeyCredentialAndKey(ctx, names, authCred)
 	return containerClient, err
 }
 
 // NewContainerClientWithSharedKeyCredentialAndKey gets a container client and shared key
-// that it's authenticated with. This function should only be used for testing.
-func NewContainerClientWithSharedKeyCredentialAndKey(ctx context.Context, names StorageContainerNames, creds StorageCredentials) (*container.Client, string, error) {
+// that it's authenticated with. This function should only be used for testing and internally within this package.
+func NewContainerClientWithSharedKeyCredentialAndKey(ctx context.Context, names StorageContainerNames, authCred azcore.TokenCredential) (*container.Client, string, error) {
 	client := httpclient.New(ctx)
-	if creds.StorageAccessKey == "" {
-		// Lookup the key with an account client
-		accountsClient, err := NewStorageAccountsClient(client, creds.AuthCred, names.SubscriptionID)
-		if err != nil {
-			return nil, "", err
-		}
-		keys, err := accountsClient.ListKeys(ctx, names.ResourceGroup, names.StorageAccount, nil)
-		if err != nil {
-			return nil, "", fmt.Errorf("error listing access keys on the storage account: %w", err)
-		}
-		if len(keys.Keys) == 0 || keys.Keys[0] == nil || keys.Keys[0].Value == nil {
-			return nil, "", fmt.Errorf("malformed structure returned from the ListKeys function")
-		}
-
-		creds.StorageAccessKey = *keys.Keys[0].Value
+	// Lookup the key with an account client
+	accountsClient, err := NewStorageAccountsClient(client, authCred, names.SubscriptionID)
+	if err != nil {
+		return nil, "", err
+	}
+	keys, err := accountsClient.ListKeys(ctx, names.ResourceGroup, names.StorageAccount, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("error listing access keys on the storage account: %w", err)
+	}
+	if len(keys.Keys) == 0 || keys.Keys[0] == nil || keys.Keys[0].Value == nil {
+		return nil, "", fmt.Errorf("malformed structure returned from the ListKeys function")
 	}
 
-	sharedKeyCredential, err := container.NewSharedKeyCredential(names.StorageAccount, creds.StorageAccessKey)
+	storageAccessKey := *keys.Keys[0].Value
+
+	return newContainerClientFromStorageAccessKey(client, names, storageAccessKey)
+}
+
+// NewContainerClientFromStorageAccessKey gets a container client authenticated with
+// the provided Storage Account Access Key.
+func NewContainerClientFromStorageAccessKey(ctx context.Context, names StorageContainerNames, storageAccessKey string) (*container.Client, error) {
+	client := httpclient.New(ctx)
+	containerClient, _, err := newContainerClientFromStorageAccessKey(client, names, storageAccessKey)
+	return containerClient, err
+}
+
+func newContainerClientFromStorageAccessKey(client *http.Client, names StorageContainerNames, storageAccessKey string) (*container.Client, string, error) {
+	sharedKeyCredential, err := container.NewSharedKeyCredential(names.StorageAccount, storageAccessKey)
 	if err != nil {
 		return nil, "", fmt.Errorf("error creating credential from shared access key: %w", err)
 	}
-	// TODO we may want to do further error and name checking on this URL
-	containerURL := fmt.Sprintf("https://%s.blob.core.windows.net/%s", names.StorageAccount, names.StorageContainer)
+	containerURL := containerURL(names)
 
 	containerClient, err := container.NewClientWithSharedKeyCredential(containerURL, sharedKeyCredential, &container.ClientOptions{
-		ClientOptions: ClientOptions(client),
+		ClientOptions: clientOptions(client),
 	})
 	if err != nil {
 		return nil, "", fmt.Errorf("error obtaining container client from access key: %w", err)
 	}
-	return containerClient, creds.StorageAccessKey, nil
+	return containerClient, storageAccessKey, nil
+}
+
+func containerURL(names StorageContainerNames) string {
+	// TODO we may want to do further error and name checking on this URL
+	// Moreover, is this correct if the environment is different? If we're using Stack?
+	return fmt.Sprintf("https://%s.blob.core.windows.net/%s", names.StorageAccount, names.StorageContainer)
+}
+
+// NewContainerClient gets a client authenticated with the given auth credentials.
+func NewContainerClient(ctx context.Context, names StorageContainerNames, authCred azcore.TokenCredential) (*container.Client, error) {
+	client := httpclient.New(ctx)
+	return container.NewClient(containerURL(names), authCred, &container.ClientOptions{
+		ClientOptions: clientOptions(client),
+	})
 }

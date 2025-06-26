@@ -104,10 +104,7 @@ func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.
 			ResourceGroup:    res.resourceGroup,
 			StorageContainer: res.storageContainerName,
 		},
-		auth.StorageCredentials{
-			StorageAccessKey: res.storageAccountAccessKey,
-			AuthCred:         authCred,
-		},
+		authCred,
 	)
 	if err != nil {
 		return nil, nil, err

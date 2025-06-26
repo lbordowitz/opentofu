@@ -1,7 +1,6 @@
 package config
 
 type BackendConfig struct {
-	AccessKey                     string
 	ClientID                      string
 	ClientCertificatePassword     string
 	ClientCertificatePath         string
