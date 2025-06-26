@@ -98,7 +98,7 @@ func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.
 
 	containerClient, key, err := auth.NewContainerClientWithSharedKeyCredentialAndKey(
 		t.Context(),
-		auth.StorageContainerNames{
+		auth.StorageAddresses{
 			SubscriptionID:   res.subscriptionID,
 			StorageAccount:   res.storageAccountName,
 			ResourceGroup:    res.resourceGroup,

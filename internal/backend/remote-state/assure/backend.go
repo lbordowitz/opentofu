@@ -227,7 +227,6 @@ func (b *Backend) configure(ctx context.Context) error {
 
 	// Grab the resource data
 	data := schema.FromContextBackendConfig(ctx)
-	accountName := data.Get("storage_account_name").(string)
 	b.containerName = data.Get("container_name").(string)
 	b.keyName = data.Get("key").(string)
 	b.snapshot = data.Get("snapshot").(bool)
@@ -237,42 +236,40 @@ func (b *Backend) configure(ctx context.Context) error {
 	sasToken := data.Get("sas_token").(string)
 	useAzureADAuthentication := data.Get("use_azuread_auth").(bool)
 
-	config := auth.Config{
-		ClientBasicAuthConfig: auth.ClientBasicAuthConfig{
+	config := &auth.Config{
+		ClientBasicAuthConfig: &auth.ClientBasicAuthConfig{
 			ClientID:     data.Get("client_id").(string),
 			ClientSecret: data.Get("client_secret").(string),
 		},
-		ClientCertificateAuthConfig: auth.ClientCertificateAuthConfig{
+		ClientCertificateAuthConfig: &auth.ClientCertificateAuthConfig{
 			ClientCertificatePassword: data.Get("client_certificate_password").(string),
 			ClientCertificatePath:     data.Get("client_certificate_path").(string),
 		},
-		OIDCAuthConfig: auth.OIDCAuthConfig{
+		OIDCAuthConfig: &auth.OIDCAuthConfig{
 			UseOIDC:           data.Get("use_oidc").(bool),
 			OIDCToken:         data.Get("oidc_token").(string),
 			OIDCTokenFilePath: data.Get("oidc_token_file_path").(string),
 			OIDCRequestURL:    data.Get("oidc_request_url").(string),
 			OIDCRequestToken:  data.Get("oidc_request_token").(string)},
-		MSIAuthConfig: auth.MSIAuthConfig{
+		MSIAuthConfig: &auth.MSIAuthConfig{
 			UseMsi:      data.Get("use_msi").(bool),
 			MsiEndpoint: data.Get("msi_endpoint").(string),
 		},
-		CustomResourceManagerEndpoint: data.Get("endpoint").(string),
-		MetadataHost:                  data.Get("metadata_host").(string),
-		Environment:                   data.Get("environment").(string),
-		ResourceGroupName:             data.Get("resource_group_name").(string),
-		SubscriptionID:                data.Get("subscription_id").(string),
-		TenantID:                      data.Get("tenant_id").(string),
-	}
-
-	storageNames := auth.StorageContainerNames{
-		StorageAccount:   accountName,
-		ResourceGroup:    config.ResourceGroupName,
-		StorageContainer: b.containerName,
+		StorageAddresses: &auth.StorageAddresses{
+			CustomResourceManagerEndpoint: data.Get("endpoint").(string),
+			Environment:                   data.Get("environment").(string),
+			MetadataHost:                  data.Get("metadata_host").(string),
+			ResourceGroup:                 data.Get("resource_group_name").(string),
+			StorageAccount:                data.Get("storage_account_name").(string),
+			StorageContainer:              b.containerName,
+			SubscriptionID:                data.Get("subscription_id").(string),
+			TenantID:                      data.Get("tenant_id").(string),
+		},
 	}
 
 	// Check for nonempty Storage Account Shared Access Key
 	if accessKey != "" {
-		containerClient, err := auth.NewContainerClientFromStorageAccessKey(ctx, storageNames, accessKey)
+		containerClient, err := auth.NewContainerClientFromStorageAccessKey(ctx, *config.StorageAddresses, accessKey)
 		if err != nil {
 			return err
 		}
@@ -285,7 +282,7 @@ func (b *Backend) configure(ctx context.Context) error {
 
 	// Check for nonempty SAS Token
 	if sasToken != "" {
-		containerClient, err := auth.NewContainerClientFromSAS(ctx, storageNames, sasToken)
+		containerClient, err := auth.NewContainerClientFromSAS(ctx, *config.StorageAddresses, sasToken)
 		if err != nil {
 			return err
 		}
@@ -296,7 +293,7 @@ func (b *Backend) configure(ctx context.Context) error {
 
 	// Shared Access Key and SAS Token are both empty
 	// Get auth credentials
-	authCred, err := auth.GetAuthCredentials(ctx, &config)
+	authCred, err := auth.GetAuthCredentials(ctx, config)
 	if err != nil {
 		return fmt.Errorf("error getting auth credentials: %w", err)
 	}
@@ -304,7 +301,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	// If we use Azure AD (Entra ID) Auth, we're done!
 	// Just set up the client with these auth credentials
 	if useAzureADAuthentication {
-		bootstrapContainerClient, err := auth.NewContainerClient(ctx, storageNames, authCred)
+		bootstrapContainerClient, err := auth.NewContainerClient(ctx, *config.StorageAddresses, authCred)
 		if err != nil {
 			return fmt.Errorf("error getting container client: %w", err)
 		}
@@ -314,17 +311,15 @@ func (b *Backend) configure(ctx context.Context) error {
 
 	// Otherwise, use those credentials to bootstrap Storage Account Shared Key Auth
 	// We'll also need to set the Subscription ID
-	// TODO: should this logic be set into the CLI auth proper?
-	subscriptionID := config.SubscriptionID
-	if subscriptionID == "" {
-		subscriptionID, err = auth.GetCliAzureSubscriptionID()
+	// TODO: this logic should probbly be in the CLI auth section
+	if config.StorageAddresses.SubscriptionID == "" {
+		config.StorageAddresses.SubscriptionID, err = auth.GetCliAzureSubscriptionID()
 		if err != nil {
 			return err
 		}
 	}
-	storageNames.SubscriptionID = subscriptionID
 
-	containerClient, err := auth.NewContainerClientWithSharedKeyCredential(ctx, storageNames, authCred)
+	containerClient, err := auth.NewContainerClientWithSharedKeyCredential(ctx, *config.StorageAddresses, authCred)
 	if err != nil {
 		return fmt.Errorf("error getting container client: %w", err)
 	}

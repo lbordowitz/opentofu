@@ -48,24 +48,28 @@ func NewStorageAccountsClient(client *http.Client, authCred azcore.TokenCredenti
 	return storageClientFactory.NewAccountsClient(), nil
 }
 
-type StorageContainerNames struct {
-	SubscriptionID   string
-	StorageAccount   string
-	ResourceGroup    string
-	StorageContainer string
+type StorageAddresses struct {
+	CustomResourceManagerEndpoint string
+	Environment                   string
+	MetadataHost                  string
+	ResourceGroup                 string
+	StorageAccount                string
+	StorageContainer              string
+	SubscriptionID                string
+	TenantID                      string
 }
 
 // NewContainerClientWithSharedKeyCredentialAndKey gets a container client authenticated with
 // a shared Storage Account Access Key, using previously obtained authentication credentials to
 // obtain said key from the Storage Account.
-func NewContainerClientWithSharedKeyCredential(ctx context.Context, names StorageContainerNames, authCred azcore.TokenCredential) (*container.Client, error) {
+func NewContainerClientWithSharedKeyCredential(ctx context.Context, names StorageAddresses, authCred azcore.TokenCredential) (*container.Client, error) {
 	containerClient, _, err := NewContainerClientWithSharedKeyCredentialAndKey(ctx, names, authCred)
 	return containerClient, err
 }
 
 // NewContainerClientWithSharedKeyCredentialAndKey gets a container client and shared key
 // that it's authenticated with. This function should only be used for testing and internally within this package.
-func NewContainerClientWithSharedKeyCredentialAndKey(ctx context.Context, names StorageContainerNames, authCred azcore.TokenCredential) (*container.Client, string, error) {
+func NewContainerClientWithSharedKeyCredentialAndKey(ctx context.Context, names StorageAddresses, authCred azcore.TokenCredential) (*container.Client, string, error) {
 	client := httpclient.New(ctx)
 	// Lookup the key with an account client
 	accountsClient, err := NewStorageAccountsClient(client, authCred, names.SubscriptionID)
@@ -87,19 +91,19 @@ func NewContainerClientWithSharedKeyCredentialAndKey(ctx context.Context, names 
 
 // NewContainerClientFromStorageAccessKey gets a container client authenticated with
 // the provided Storage Account Access Key.
-func NewContainerClientFromStorageAccessKey(ctx context.Context, names StorageContainerNames, storageAccessKey string) (*container.Client, error) {
+func NewContainerClientFromStorageAccessKey(ctx context.Context, names StorageAddresses, storageAccessKey string) (*container.Client, error) {
 	client := httpclient.New(ctx)
 	containerClient, _, err := newContainerClientFromStorageAccessKey(client, names, storageAccessKey)
 	return containerClient, err
 }
 
-func containerURL(names StorageContainerNames) string {
+func containerURL(names StorageAddresses) string {
 	// TODO we may want to do further error and name checking on this URL
 	// Moreover, is this correct if the environment is different? If we're using Stack?
 	return fmt.Sprintf("https://%s.blob.core.windows.net/%s", names.StorageAccount, names.StorageContainer)
 }
 
-func newContainerClientFromStorageAccessKey(client *http.Client, names StorageContainerNames, storageAccessKey string) (*container.Client, string, error) {
+func newContainerClientFromStorageAccessKey(client *http.Client, names StorageAddresses, storageAccessKey string) (*container.Client, string, error) {
 	sharedKeyCredential, err := container.NewSharedKeyCredential(names.StorageAccount, storageAccessKey)
 	if err != nil {
 		return nil, "", fmt.Errorf("error creating credential from shared access key: %w", err)
@@ -116,7 +120,7 @@ func newContainerClientFromStorageAccessKey(client *http.Client, names StorageCo
 }
 
 // NewContainerClient gets a client authenticated with a Shared Access Signature
-func NewContainerClientFromSAS(ctx context.Context, names StorageContainerNames, sasToken string) (*container.Client, error) {
+func NewContainerClientFromSAS(ctx context.Context, names StorageAddresses, sasToken string) (*container.Client, error) {
 	client := httpclient.New(ctx)
 	url := containerURL(names)
 
@@ -128,7 +132,7 @@ func NewContainerClientFromSAS(ctx context.Context, names StorageContainerNames,
 }
 
 // NewContainerClient gets a client authenticated with the given auth credentials.
-func NewContainerClient(ctx context.Context, names StorageContainerNames, authCred azcore.TokenCredential) (*container.Client, error) {
+func NewContainerClient(ctx context.Context, names StorageAddresses, authCred azcore.TokenCredential) (*container.Client, error) {
 	client := httpclient.New(ctx)
 	return container.NewClient(containerURL(names), authCred, &container.ClientOptions{
 		ClientOptions: clientOptions(client),

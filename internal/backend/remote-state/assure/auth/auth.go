@@ -7,17 +7,11 @@ import (
 )
 
 type Config struct {
-	ClientBasicAuthConfig
-	ClientCertificateAuthConfig
-	OIDCAuthConfig
-	MSIAuthConfig
-	// TODO determine what to do with the rest of these
-	CustomResourceManagerEndpoint string
-	MetadataHost                  string
-	Environment                   string
-	ResourceGroupName             string
-	SubscriptionID                string
-	TenantID                      string
+	*ClientBasicAuthConfig
+	*ClientCertificateAuthConfig
+	*OIDCAuthConfig
+	*MSIAuthConfig
+	*StorageAddresses
 }
 
 /*
