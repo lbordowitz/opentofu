@@ -1,10 +1,6 @@
 package config
 
 type BackendConfig struct {
-	// Required
-	StorageAccountName string
-
-	// Optional
 	AccessKey                     string
 	ClientID                      string
 	ClientCertificatePassword     string

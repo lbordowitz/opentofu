@@ -217,7 +217,6 @@ type Backend struct {
 	containerClient *container.Client
 	containerName   string // TODO do we really need this?
 	keyName         string
-	accountName     string // TODO do we really need this?
 	snapshot        bool
 	timeout         time.Duration
 }
@@ -229,8 +228,8 @@ func (b *Backend) configure(ctx context.Context) error {
 
 	// Grab the resource data
 	data := schema.FromContextBackendConfig(ctx)
+	accountName := data.Get("storage_account_name").(string)
 	b.containerName = data.Get("container_name").(string)
-	b.accountName = data.Get("storage_account_name").(string)
 	b.keyName = data.Get("key").(string)
 	b.snapshot = data.Get("snapshot").(bool)
 	b.timeout = time.Duration(data.Get("timeout_seconds").(int)) * time.Second
@@ -251,7 +250,6 @@ func (b *Backend) configure(ctx context.Context) error {
 		OIDCRequestToken:              data.Get("oidc_request_token").(string),
 		ResourceGroupName:             data.Get("resource_group_name").(string),
 		SasToken:                      data.Get("sas_token").(string),
-		StorageAccountName:            data.Get("storage_account_name").(string),
 		SubscriptionID:                data.Get("subscription_id").(string),
 		TenantID:                      data.Get("tenant_id").(string),
 		UseMsi:                        data.Get("use_msi").(bool),
@@ -290,7 +288,7 @@ func (b *Backend) configure(ctx context.Context) error {
 		ctx,
 		auth.StorageContainerNames{
 			SubscriptionID:   subscriptionID,
-			StorageAccount:   b.accountName,
+			StorageAccount:   accountName,
 			ResourceGroup:    config.ResourceGroupName,
 			StorageContainer: b.containerName,
 		},
