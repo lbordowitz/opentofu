@@ -14,7 +14,6 @@ type BackendConfig struct {
 	OIDCRequestURL                string
 	OIDCRequestToken              string
 	ResourceGroupName             string
-	SasToken                      string
 	SubscriptionID                string
 	TenantID                      string
 	UseMsi                        bool

@@ -215,7 +215,7 @@ type Backend struct {
 
 	// The fields below are set from configure
 	containerClient *container.Client
-	containerName   string // TODO do we really need this?
+	containerName   string // this is primarily here for testing
 	keyName         string
 	snapshot        bool
 	timeout         time.Duration
@@ -235,6 +235,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	b.timeout = time.Duration(data.Get("timeout_seconds").(int)) * time.Second
 
 	accessKey := data.Get("access_key").(string)
+	sasToken := data.Get("sas_token").(string)
 
 	config := config.BackendConfig{
 		ClientID:                      data.Get("client_id").(string),
@@ -250,7 +251,6 @@ func (b *Backend) configure(ctx context.Context) error {
 		OIDCRequestURL:                data.Get("oidc_request_url").(string),
 		OIDCRequestToken:              data.Get("oidc_request_token").(string),
 		ResourceGroupName:             data.Get("resource_group_name").(string),
-		SasToken:                      data.Get("sas_token").(string),
 		SubscriptionID:                data.Get("subscription_id").(string),
 		TenantID:                      data.Get("tenant_id").(string),
 		UseMsi:                        data.Get("use_msi").(bool),
@@ -275,11 +275,20 @@ func (b *Backend) configure(ctx context.Context) error {
 		return nil
 	}
 
-	// Shared Access Key is empty
-	// Check for nonempty SAS Token
-	// TODO ^^ this
+	// Shared Access Key is now known to be empty
 
-	// Shared Access Key and SAS Token are empty
+	// Check for nonempty SAS Token
+	if sasToken != "" {
+		containerClient, err := auth.NewContainerClientFromSAS(ctx, storageNames, sasToken)
+		if err != nil {
+			return err
+		}
+
+		b.containerClient = containerClient
+		return nil
+	}
+
+	// Shared Access Key and SAS Token are both empty
 	// Get auth credentials
 	authCred, err := auth.GetAuthCredentials(ctx, &config)
 	if err != nil {

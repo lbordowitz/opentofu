@@ -93,6 +93,12 @@ func NewContainerClientFromStorageAccessKey(ctx context.Context, names StorageCo
 	return containerClient, err
 }
 
+func containerURL(names StorageContainerNames) string {
+	// TODO we may want to do further error and name checking on this URL
+	// Moreover, is this correct if the environment is different? If we're using Stack?
+	return fmt.Sprintf("https://%s.blob.core.windows.net/%s", names.StorageAccount, names.StorageContainer)
+}
+
 func newContainerClientFromStorageAccessKey(client *http.Client, names StorageContainerNames, storageAccessKey string) (*container.Client, string, error) {
 	sharedKeyCredential, err := container.NewSharedKeyCredential(names.StorageAccount, storageAccessKey)
 	if err != nil {
@@ -109,10 +115,16 @@ func newContainerClientFromStorageAccessKey(client *http.Client, names StorageCo
 	return containerClient, storageAccessKey, nil
 }
 
-func containerURL(names StorageContainerNames) string {
-	// TODO we may want to do further error and name checking on this URL
-	// Moreover, is this correct if the environment is different? If we're using Stack?
-	return fmt.Sprintf("https://%s.blob.core.windows.net/%s", names.StorageAccount, names.StorageContainer)
+// NewContainerClient gets a client authenticated with a Shared Access Signature
+func NewContainerClientFromSAS(ctx context.Context, names StorageContainerNames, sasToken string) (*container.Client, error) {
+	client := httpclient.New(ctx)
+	url := containerURL(names)
+
+	containerURL := fmt.Sprintf("%s?%s", url, sasToken)
+
+	return container.NewClientWithNoCredential(containerURL, &container.ClientOptions{
+		ClientOptions: clientOptions(client),
+	})
 }
 
 // NewContainerClient gets a client authenticated with the given auth credentials.
