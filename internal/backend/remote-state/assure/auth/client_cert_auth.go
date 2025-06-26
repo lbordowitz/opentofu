@@ -2,7 +2,6 @@ package auth
 
 import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/hashicorp/hcl/v2"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
@@ -31,10 +30,10 @@ func (cred *clientCertAuth) Construct(config *Config) (azcore.TokenCredential, e
 }
 func (cred *clientCertAuth) Validate(config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
-	diags = diags.Append(hcl.Diagnostic{
-		Severity: tfdiags.Warning.ToHCL(),
-		Summary:  "Certificate Auth is unimplemented",
-		Detail:   "This authentication method has yet to be implemented",
-	})
+	diags = diags.Append(tfdiags.Sourceless(
+		tfdiags.Error,
+		"Certificate Auth is unimplemented",
+		"This authentication method has yet to be implemented",
+	))
 	return diags
 }

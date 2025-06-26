@@ -157,7 +157,7 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
 
-	authCred, err := auth.GetAuthCredentials(t.Context(), nil)
+	authCred, err := auth.GetAuthCredentials(t.Context(), emptyAuthConfig())
 	if err != nil {
 		t.Fatal(err)
 	}

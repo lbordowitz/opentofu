@@ -42,5 +42,5 @@ func GetAuthCredentials(ctx context.Context, config *Config) (azcore.TokenCreden
 		Summary:  "No valid azure auth methods found",
 		Detail:   "Please see above warnings for details about what each auth method needs to properly work.",
 	})
-	return nil, diags.Err()
+	return nil, diags.ErrWithWarnings()
 }

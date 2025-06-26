@@ -2,7 +2,6 @@ package auth
 
 import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/hashicorp/hcl/v2"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
@@ -24,10 +23,10 @@ func (cred *oidcAuth) Construct(config *Config) (azcore.TokenCredential, error) 
 }
 func (cred *oidcAuth) Validate(config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
-	diags = diags.Append(hcl.Diagnostic{
-		Severity: tfdiags.Warning.ToHCL(),
-		Summary:  "OIDC Auth is unimplemented",
-		Detail:   "This authentication method has yet to be implemented",
-	})
+	diags = diags.Append(tfdiags.Sourceless(
+		tfdiags.Error,
+		"OIDC Auth is unimplemented",
+		"This authentication method has yet to be implemented",
+	))
 	return diags
 }

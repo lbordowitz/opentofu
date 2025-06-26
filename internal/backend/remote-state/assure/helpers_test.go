@@ -131,3 +131,13 @@ func destroyTestResources(t *testing.T, resourceGroupClient *armresources.Resour
 		t.Fatalf("Error waiting for the deletion of Resource Group: %v", err)
 	}
 }
+
+func emptyAuthConfig() *auth.Config {
+	return &auth.Config{
+		ClientBasicAuthConfig:       &auth.ClientBasicAuthConfig{},
+		ClientCertificateAuthConfig: &auth.ClientCertificateAuthConfig{},
+		OIDCAuthConfig:              &auth.OIDCAuthConfig{},
+		MSIAuthConfig:               &auth.MSIAuthConfig{},
+		StorageAddresses:            &auth.StorageAddresses{},
+	}
+}

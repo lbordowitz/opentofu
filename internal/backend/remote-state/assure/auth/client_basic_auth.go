@@ -5,7 +5,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/hashicorp/hcl/v2"
 	"github.com/opentofu/opentofu/internal/httpclient"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
@@ -32,10 +31,10 @@ func (cred *clientBasicAuth) Construct(config *Config) (azcore.TokenCredential, 
 }
 func (cred *clientBasicAuth) Validate(config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
-	diags = diags.Append(hcl.Diagnostic{
-		Severity: tfdiags.Warning.ToHCL(),
-		Summary:  "Client Secret Auth is unimplemented",
-		Detail:   "This authentication method has yet to be implemented",
-	})
+	diags = diags.Append(tfdiags.Sourceless(
+		tfdiags.Error,
+		"Client Secret Auth is unimplemented",
+		"This authentication method has yet to be implemented",
+	))
 	return diags
 }
