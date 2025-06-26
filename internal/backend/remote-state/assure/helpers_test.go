@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/auth"
+	"github.com/opentofu/opentofu/internal/httpclient"
 )
 
 // verify that we are doing ACC tests or the Azure tests specifically
@@ -60,7 +61,8 @@ func testResourceNames(rString string, keyName string) resourceNames {
 // and returns a client for both the storage container and the resource group (the latter for
 // cleanup purposes).
 func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.AzureCLICredential) (*armresources.ResourceGroupsClient, *container.Client, error) {
-	resourceGroupClient, err := auth.NewResourceClient(authCred, res.subscriptionID)
+	client := httpclient.New(t.Context())
+	resourceGroupClient, err := auth.NewResourceClient(client, authCred, res.subscriptionID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -71,7 +73,7 @@ func createTestResources(t *testing.T, res *resourceNames, authCred *azidentity.
 		return nil, nil, fmt.Errorf("error error creating resource group: %w", err)
 	}
 
-	accountsClient, err := auth.NewStorageAccountsClient(authCred, res.subscriptionID)
+	accountsClient, err := auth.NewStorageAccountsClient(client, authCred, res.subscriptionID)
 	if err != nil {
 		return nil, nil, err
 	}
