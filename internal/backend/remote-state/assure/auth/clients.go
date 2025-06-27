@@ -56,7 +56,7 @@ type StorageAddresses struct {
 	StorageAccount                string
 	StorageContainer              string
 	SubscriptionID                string
-	TenantID                      string // TODO check if used
+	TenantID                      string
 }
 
 // NewContainerClientWithSharedKeyCredentialAndKey gets a container client authenticated with
