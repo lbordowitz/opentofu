@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"context"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
@@ -18,7 +20,7 @@ type OIDCAuthConfig struct {
 
 type oidcAuth struct{}
 
-func (cred *oidcAuth) Construct(config *Config) (azcore.TokenCredential, error) {
+func (cred *oidcAuth) Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
 	return nil, nil
 }
 func (cred *oidcAuth) Validate(config *Config) tfdiags.Diagnostics {

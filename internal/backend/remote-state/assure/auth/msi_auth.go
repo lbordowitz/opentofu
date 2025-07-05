@@ -16,9 +16,8 @@ type MSIAuthConfig struct {
 
 type managedIdentityAuth struct{}
 
-func (cred *managedIdentityAuth) Construct(config *Config) (azcore.TokenCredential, error) {
-	// TODO pass through http client maybe????
-	client := httpclient.New(context.TODO())
+func (cred *managedIdentityAuth) Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
+	client := httpclient.New(ctx)
 	// TODO is this correct?
 	return azidentity.NewManagedIdentityCredential(
 		&azidentity.ManagedIdentityCredentialOptions{

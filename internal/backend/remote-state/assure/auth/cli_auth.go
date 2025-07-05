@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +16,7 @@ import (
 
 type azureCLICredentialAuth struct{}
 
-func (cred *azureCLICredentialAuth) Construct(config *Config) (azcore.TokenCredential, error) {
+func (cred *azureCLICredentialAuth) Construct(_ context.Context, config *Config) (azcore.TokenCredential, error) {
 	// TODO is this enough?
 	return azidentity.NewAzureCLICredential(&azidentity.AzureCLICredentialOptions{
 		Subscription: config.StorageAddresses.SubscriptionID,

@@ -17,7 +17,7 @@ type Config struct {
 }
 
 type AuthMethod interface {
-	Construct(config *Config) (azcore.TokenCredential, error)
+	Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error)
 	Validate(config *Config) tfdiags.Diagnostics
 }
 
@@ -35,7 +35,7 @@ func GetAuthCredentials(ctx context.Context, config *Config) (azcore.TokenCreden
 			diags = diags.Append(d)
 			continue
 		}
-		return authMethod.Construct(config)
+		return authMethod.Construct(ctx, config)
 	}
 	diags = diags.Append(hcl.Diagnostic{
 		Severity: hcl.DiagError,

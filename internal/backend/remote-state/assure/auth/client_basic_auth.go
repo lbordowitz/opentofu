@@ -16,9 +16,8 @@ type ClientBasicAuthConfig struct {
 
 type clientBasicAuth struct{}
 
-func (cred *clientBasicAuth) Construct(config *Config) (azcore.TokenCredential, error) {
-	// TODO pass through http client maybe????
-	client := httpclient.New(context.TODO())
+func (cred *clientBasicAuth) Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
+	client := httpclient.New(ctx)
 	// TODO determine if we need to do more here...
 	return azidentity.NewClientSecretCredential(
 		config.StorageAddresses.TenantID,
