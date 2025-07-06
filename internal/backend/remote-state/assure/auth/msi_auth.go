@@ -37,5 +37,5 @@ func (cred *managedIdentityAuth) Validate(config *Config) tfdiags.Diagnostics {
 }
 
 func (cred *managedIdentityAuth) AugmentConfig(config *Config) error {
-	return checkNamesForAccessCredentials(*config.StorageAddresses)
+	return checkNamesForAccessKeyCredentials(*config.StorageAddresses)
 }

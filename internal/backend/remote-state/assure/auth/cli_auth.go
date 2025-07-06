@@ -29,12 +29,12 @@ func (cred *azureCLICredentialAuth) Validate(config *Config) tfdiags.Diagnostics
 
 func (cred *azureCLICredentialAuth) AugmentConfig(config *Config) (err error) {
 	if config.StorageAddresses.SubscriptionID == "" {
-		config.StorageAddresses.SubscriptionID, err = GetCliAzureSubscriptionID()
+		config.StorageAddresses.SubscriptionID, err = getCliAzureSubscriptionID()
 		if err != nil {
 			return err
 		}
 	}
-	return checkNamesForAccessCredentials(*config.StorageAddresses)
+	return checkNamesForAccessKeyCredentials(*config.StorageAddresses)
 }
 
 type Subscription struct {
@@ -55,7 +55,7 @@ type Profile struct {
 // # TODO make sure this is compatible with Windows
 //
 // # TODO do we want to obtain anything else from the profile setting? Tenant ID, perhaps?
-func GetCliAzureSubscriptionID() (string, error) {
+func getCliAzureSubscriptionID() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err

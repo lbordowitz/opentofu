@@ -41,5 +41,5 @@ func (cred *clientCertAuth) Validate(config *Config) tfdiags.Diagnostics {
 }
 
 func (cred *clientCertAuth) AugmentConfig(config *Config) error {
-	return checkNamesForAccessCredentials(*config.StorageAddresses)
+	return checkNamesForAccessKeyCredentials(*config.StorageAddresses)
 }

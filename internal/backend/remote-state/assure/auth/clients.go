@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/opentofu/opentofu/internal/httpclient"
+	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
 func clientOptions(client *http.Client) policy.ClientOptions {
@@ -67,11 +68,30 @@ func NewContainerClientWithSharedKeyCredential(ctx context.Context, names Storag
 	return containerClient, err
 }
 
-func checkNamesForAccessCredentials(names StorageAddresses) error {
-	// TODO ensure names.ResourceGroup, names.StorageAccount, and names.SubscriptionID are all nonempty
-	// TODO use this method in all of the AugmentConfig methods
-	// which are called to ensure the success of the below NewContainerClientWithSharedKeyCredentialAndKey method
-	return nil
+func checkNamesForAccessKeyCredentials(names StorageAddresses) error {
+	var diags tfdiags.Diagnostics
+	if names.ResourceGroup == "" {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"Resource Group is empty",
+			"In order to obtain a Storage Account Access Key, a resource group is necessary",
+		))
+	}
+	if names.StorageAccount == "" {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"Storage Account is empty",
+			"In order to obtain a Storage Account Access Key, a storage account name is necessary",
+		))
+	}
+	if names.SubscriptionID == "" {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"Subscription ID is empty",
+			"In order to obtain a Storage Account Access Key, a subscription id is necessary",
+		))
+	}
+	return diags.Err()
 }
 
 // NewContainerClientWithSharedKeyCredentialAndKey gets a container client and shared key
