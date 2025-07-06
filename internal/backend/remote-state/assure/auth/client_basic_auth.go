@@ -18,7 +18,7 @@ type clientBasicAuth struct{}
 
 func (cred *clientBasicAuth) Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
 	client := httpclient.New(ctx)
-	// TODO determine if we need to do more here...
+
 	return azidentity.NewClientSecretCredential(
 		config.StorageAddresses.TenantID,
 		config.ClientBasicAuthConfig.ClientID,
@@ -28,13 +28,30 @@ func (cred *clientBasicAuth) Construct(ctx context.Context, config *Config) (azc
 		},
 	)
 }
+
 func (cred *clientBasicAuth) Validate(config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
-	diags = diags.Append(tfdiags.Sourceless(
-		tfdiags.Error,
-		"Client Secret Auth is unimplemented",
-		"This authentication method has yet to be implemented",
-	))
+	if config.StorageAddresses.TenantID == "" {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"Tenant ID is empty",
+			"In order to use Client Secret credentials, a tenant ID is necessary",
+		))
+	}
+	if config.ClientBasicAuthConfig.ClientID == "" {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"Client ID is empty",
+			"In order to use Client Secret credentials, a client ID is necessary",
+		))
+	}
+	if config.ClientBasicAuthConfig.ClientSecret == "" {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"Client Secret is empty",
+			"In order to use Client Secret credentials, a client secret is necessary",
+		))
+	}
 	return diags
 }
 

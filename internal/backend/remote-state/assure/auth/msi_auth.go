@@ -18,7 +18,7 @@ type managedIdentityAuth struct{}
 
 func (cred *managedIdentityAuth) Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
 	client := httpclient.New(ctx)
-	// TODO is this correct?
+
 	return azidentity.NewManagedIdentityCredential(
 		&azidentity.ManagedIdentityCredentialOptions{
 			ClientOptions: clientOptions(client),
@@ -28,11 +28,13 @@ func (cred *managedIdentityAuth) Construct(ctx context.Context, config *Config) 
 
 func (cred *managedIdentityAuth) Validate(config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
-	diags = diags.Append(tfdiags.Sourceless(
-		tfdiags.Error,
-		"Managed Identity Auth is unimplemented",
-		"This authentication method has yet to be implemented",
-	))
+	if !config.MSIAuthConfig.UseMsi {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"Managed Identity Auth is not set",
+			"The Managed Service Identity (MSI) needs to have \"use_msi\" (or ARM_USE_MSI) set to true in order to be used.",
+		))
+	}
 	return diags
 }
 
