@@ -32,3 +32,7 @@ func (cred *oidcAuth) Validate(config *Config) tfdiags.Diagnostics {
 	))
 	return diags
 }
+
+func (cred *oidcAuth) AugmentConfig(config *Config) error {
+	return checkNamesForAccessCredentials(*config.StorageAddresses)
+}

@@ -21,7 +21,11 @@ func TestPutMaintainsMetadata(t *testing.T) {
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
 
-	authCred, err := auth.GetAuthCredentials(t.Context(), emptyAuthConfig())
+	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authCred, err := authMethod.Construct(t.Context(), emptyAuthConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +91,11 @@ func TestRemoteClientAccessKeyBasic(t *testing.T) {
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
 
-	authCred, err := auth.GetAuthCredentials(t.Context(), emptyAuthConfig())
+	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authCred, err := authMethod.Construct(t.Context(), emptyAuthConfig())
 	if err != nil {
 		t.Fatal(err)
 	}

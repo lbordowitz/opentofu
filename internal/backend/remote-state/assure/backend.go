@@ -293,7 +293,7 @@ func (b *Backend) configure(ctx context.Context) error {
 
 	// Shared Access Key and SAS Token are both empty
 	// Get auth credentials
-	authCred, err := auth.GetAuthCredentials(ctx, config)
+	authMethod, err := auth.GetAuthMethod(config)
 	if err != nil {
 		return err
 	}
@@ -301,6 +301,10 @@ func (b *Backend) configure(ctx context.Context) error {
 	// If we use Azure AD (Entra ID) Auth, we're done!
 	// Just set up the client with these auth credentials
 	if useAzureADAuthentication {
+		authCred, err := authMethod.Construct(ctx, config)
+		if err != nil {
+			return err
+		}
 		bootstrapContainerClient, err := auth.NewContainerClient(ctx, *config.StorageAddresses, authCred)
 		if err != nil {
 			return fmt.Errorf("error getting container client: %w", err)
@@ -309,14 +313,15 @@ func (b *Backend) configure(ctx context.Context) error {
 		return nil
 	}
 
-	// Otherwise, use those credentials to bootstrap Storage Account Shared Key Auth
-	// We'll also need to set the Subscription ID
-	// TODO: this logic should probbly be in the CLI auth section
-	if config.StorageAddresses.SubscriptionID == "" {
-		config.StorageAddresses.SubscriptionID, err = auth.GetCliAzureSubscriptionID()
-		if err != nil {
-			return err
-		}
+	authCred, err := authMethod.Construct(ctx, config)
+	if err != nil {
+		return err
+	}
+
+	// We also call on the auth method to augment the configuration, to ensure resource group and subscription ID are present
+	err = authMethod.AugmentConfig(config)
+	if err != nil {
+		return err
 	}
 
 	containerClient, err := auth.NewContainerClientWithSharedKeyCredential(ctx, *config.StorageAddresses, authCred)

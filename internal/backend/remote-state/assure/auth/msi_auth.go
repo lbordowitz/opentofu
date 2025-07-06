@@ -25,6 +25,7 @@ func (cred *managedIdentityAuth) Construct(ctx context.Context, config *Config) 
 		},
 	)
 }
+
 func (cred *managedIdentityAuth) Validate(config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
 	diags = diags.Append(tfdiags.Sourceless(
@@ -33,4 +34,8 @@ func (cred *managedIdentityAuth) Validate(config *Config) tfdiags.Diagnostics {
 		"This authentication method has yet to be implemented",
 	))
 	return diags
+}
+
+func (cred *managedIdentityAuth) AugmentConfig(config *Config) error {
+	return checkNamesForAccessCredentials(*config.StorageAddresses)
 }

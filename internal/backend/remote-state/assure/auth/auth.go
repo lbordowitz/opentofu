@@ -19,9 +19,13 @@ type Config struct {
 type AuthMethod interface {
 	Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error)
 	Validate(config *Config) tfdiags.Diagnostics
+	// AugmentConfig should be called to ensure the config has all proper storage names
+	// when attempting to get the storage account's access keys. It will return an error if
+	// the expected storage names, IDs, and addresses are not present.
+	AugmentConfig(config *Config) error
 }
 
-func GetAuthCredentials(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
+func GetAuthMethod(config *Config) (AuthMethod, error) {
 	var authMethods []AuthMethod = []AuthMethod{
 		&clientCertAuth{},
 		&clientBasicAuth{},
@@ -35,7 +39,7 @@ func GetAuthCredentials(ctx context.Context, config *Config) (azcore.TokenCreden
 			diags = diags.Append(d)
 			continue
 		}
-		return authMethod.Construct(ctx, config)
+		return authMethod, nil
 	}
 	diags = diags.Append(hcl.Diagnostic{
 		Severity: hcl.DiagError,

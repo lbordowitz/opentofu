@@ -67,6 +67,13 @@ func NewContainerClientWithSharedKeyCredential(ctx context.Context, names Storag
 	return containerClient, err
 }
 
+func checkNamesForAccessCredentials(names StorageAddresses) error {
+	// TODO ensure names.ResourceGroup, names.StorageAccount, and names.SubscriptionID are all nonempty
+	// TODO use this method in all of the AugmentConfig methods
+	// which are called to ensure the success of the below NewContainerClientWithSharedKeyCredentialAndKey method
+	return nil
+}
+
 // NewContainerClientWithSharedKeyCredentialAndKey gets a container client and shared key
 // that it's authenticated with. This function should only be used for testing and internally within this package.
 func NewContainerClientWithSharedKeyCredentialAndKey(ctx context.Context, names StorageAddresses, authCred azcore.TokenCredential) (*container.Client, string, error) {

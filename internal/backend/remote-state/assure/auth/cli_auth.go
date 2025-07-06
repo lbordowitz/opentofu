@@ -27,6 +27,16 @@ func (cred *azureCLICredentialAuth) Validate(config *Config) tfdiags.Diagnostics
 	return nil
 }
 
+func (cred *azureCLICredentialAuth) AugmentConfig(config *Config) (err error) {
+	if config.StorageAddresses.SubscriptionID == "" {
+		config.StorageAddresses.SubscriptionID, err = GetCliAzureSubscriptionID()
+		if err != nil {
+			return err
+		}
+	}
+	return checkNamesForAccessCredentials(*config.StorageAddresses)
+}
+
 type Subscription struct {
 	Id        string `json:"id"`
 	Name      string `json:"name"`
