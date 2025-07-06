@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
@@ -24,7 +25,27 @@ func (cred *azureCLICredentialAuth) Construct(_ context.Context, config *Config)
 	})
 }
 func (cred *azureCLICredentialAuth) Validate(config *Config) tfdiags.Diagnostics {
-	return nil
+	var diags tfdiags.Diagnostics
+	// We'll try constructing it and getting a token
+	tempAuth, err := cred.Construct(context.Background(), config)
+	if err != nil {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"Error constructing test CLI credentials",
+			fmt.Sprintf("CLI credentials encountered an error while initalizing: %s", err.Error()),
+		))
+		return diags
+	}
+	_, err = tempAuth.GetToken(context.Background(), policy.TokenRequestOptions{Scopes: []string{"https://management.core.windows.net/.default"}})
+	if err != nil {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"Error constructing test CLI token",
+			fmt.Sprintf("CLI credentials encountered an error while attempting to make a test token: %s", err.Error()),
+		))
+		return diags
+	}
+	return diags
 }
 
 func (cred *azureCLICredentialAuth) AugmentConfig(config *Config) (err error) {

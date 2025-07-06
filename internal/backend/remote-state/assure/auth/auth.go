@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
-	"github.com/hashicorp/hcl/v2"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
@@ -51,10 +50,10 @@ func GetAuthMethod(config *Config) (AuthMethod, error) {
 		}
 		return authMethod, nil
 	}
-	diags = diags.Append(hcl.Diagnostic{
-		Severity: hcl.DiagError,
-		Summary:  "No valid azure auth methods found",
-		Detail:   "Please see above warnings for details about what each auth method needs to properly work.",
-	})
+	diags = diags.Append(tfdiags.Sourceless(
+		tfdiags.Error,
+		"No valid azure auth methods found",
+		"Please see above warnings for details about what each auth method needs to properly work.",
+	))
 	return nil, diags.ErrWithWarnings()
 }
