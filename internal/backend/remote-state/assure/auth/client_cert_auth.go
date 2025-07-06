@@ -24,12 +24,10 @@ type clientCertAuth struct{}
 func (cred *clientCertAuth) Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
 	client := httpclient.New(ctx)
 
-	// TODO privateKey is a bit loosey-goosey, maybe we should do something about it????
 	privateKey, certificate, err := decodePFXCertificate(
 		config.ClientCertificateAuthConfig.ClientCertificatePath,
 		config.ClientCertificateAuthConfig.ClientCertificatePassword,
 	)
-	// TODO check/wrap error
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +90,12 @@ func decodePFXCertificate(pfxFileName string, password string) (privateKey inter
 	// open file, read file contents, decode cert
 	f, err := os.Open(pfxFileName)
 	if err != nil {
+		err = fmt.Errorf("problem opening file at %s: %w", pfxFileName, err)
 		return
 	}
 	contents, err := io.ReadAll(f)
 	if err != nil {
+		err = fmt.Errorf("problem reading file: %w", err)
 		return
 	}
 	return pkcs12.Decode(contents, password)
