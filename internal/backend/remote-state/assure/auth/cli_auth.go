@@ -17,14 +17,13 @@ import (
 type azureCLICredentialAuth struct{}
 
 func (cred *azureCLICredentialAuth) Construct(_ context.Context, config *Config) (azcore.TokenCredential, error) {
-	// TODO is this enough?
+	// The SubscriptionID and TenantID can be empty, and the logic of this will still be okay
 	return azidentity.NewAzureCLICredential(&azidentity.AzureCLICredentialOptions{
 		Subscription: config.StorageAddresses.SubscriptionID,
 		TenantID:     config.StorageAddresses.TenantID,
 	})
 }
 func (cred *azureCLICredentialAuth) Validate(config *Config) tfdiags.Diagnostics {
-	// TODO determine if there's anything here we need to validate
 	return nil
 }
 
@@ -42,7 +41,9 @@ type Profile struct {
 // Azure profile. This assumes the user has an Azure profile saved to their
 // home directory, which is usually provided by the Azure command line tool when
 // using `az login`.
+//
 // # TODO make sure this is compatible with Windows
+//
 // # TODO do we want to obtain anything else from the profile setting? Tenant ID, perhaps?
 func GetCliAzureSubscriptionID() (string, error) {
 	home, err := os.UserHomeDir()
