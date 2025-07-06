@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/opentofu/opentofu/internal/httpclient"
 	"github.com/opentofu/opentofu/internal/tfdiags"
-	"golang.org/x/crypto/pkcs12"
+	"software.sslmate.com/src/go-pkcs12"
 )
 
 type ClientCertificateAuthConfig struct {
@@ -76,7 +76,6 @@ func (cred *clientCertAuth) Validate(config *Config) tfdiags.Diagnostics {
 				"Error obtaining and decoding certificate details",
 				fmt.Sprintf("In order to use Client Certificate credentials, a valid certificate is required. The following error was encountered: %s", err.Error()),
 			))
-
 		}
 	}
 	return diags
