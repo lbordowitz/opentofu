@@ -30,12 +30,12 @@ func (cred *oidcAuth) Construct(ctx context.Context, config *Config) (azcore.Tok
 	var token string
 	var err error
 	if config.OIDCToken == "" && config.OIDCTokenFilePath == "" {
-		token, err = consolidateToken(config.OIDCAuthConfig)
+		token, err = getTokenFromRemote(client, config.OIDCAuthConfig)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		token, err = getTokenFromRemote(client, config.OIDCAuthConfig)
+		token, err = consolidateToken(config.OIDCAuthConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -43,7 +43,7 @@ func (cred *oidcAuth) Construct(ctx context.Context, config *Config) (azcore.Tok
 	return azidentity.NewClientAssertionCredential(
 		config.TenantID,
 		config.ClientID,
-		func(innerContext context.Context) (string, error) {
+		func(_ context.Context) (string, error) {
 			return token, nil
 		},
 		&azidentity.ClientAssertionCredentialOptions{
