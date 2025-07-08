@@ -1,0 +1,48 @@
+name: Azure Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read        # Required to identify workflow run.
+  checks: write        # Required to add status summary.
+  contents: read       # Required to checkout repository.
+  pull-requests: write # Required to add PR comment.
+  id-token: write # This is required for requesting the JWT
+
+jobs:
+  aztest:
+    name: Testing against my personal Azure cloud.
+    runs-on: ubuntu-latest
+    environment: Azure test environment # has all my environment variables for Azure
+    env:
+      GOOS: linux
+      GOARCH: amd64
+      ARM_USE_OIDC: 'true'
+
+    steps:
+      - name: "Fetch source code"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+        with:
+          go-version-file: 'go.mod'
+
+      - name: "Build tofu executable"
+        run: go build ./cmd/tofu
+
+      - name: "Move tofu to the test folder"
+        run: mv tofu azure_test_tf
+
+      - name: "Initialize tofu folder"
+        working-directory: azure_test_tf
+        run: ./tofu init -reconfigure
+
+      - name: "Run plan on tofu folder"
+        working-directory: azure_test_tf
+        run: ./tofu plan
+
+      - name: "Apply on tofu folder"
+        working-directory: azure_test_tf
+        run: ./tofu apply
