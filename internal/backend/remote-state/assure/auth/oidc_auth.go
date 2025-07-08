@@ -2,8 +2,10 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -24,14 +26,22 @@ type oidcAuth struct{}
 
 func (cred *oidcAuth) Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
 	client := httpclient.New(ctx)
-	token, err := consolidateToken(config.OIDCAuthConfig)
-	if err != nil {
-		return nil, err
+	var token string
+	var err error
+	if config.OIDCToken == "" && config.OIDCTokenFilePath == "" {
+		token, err = consolidateToken(config.OIDCAuthConfig)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		token, err = getTokenFromRemote(client, config.OIDCAuthConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return azidentity.NewClientAssertionCredential(
 		config.TenantID,
 		config.ClientID,
-		// TODO use a separate function for obtaining an access token with request url and request token
 		func(innerContext context.Context) (string, error) {
 			return token, nil
 		},
@@ -39,6 +49,64 @@ func (cred *oidcAuth) Construct(ctx context.Context, config *Config) (azcore.Tok
 			ClientOptions: clientOptions(client),
 		},
 	)
+}
+
+type tokenResp struct {
+	Count *int    `json:"count"`
+	Value *string `json:"value"`
+}
+
+/*
+// TODO do I need this disclaimer? In a future state, we will not be using this package in the code, so the license will not necessarily still be provided
+Legal Disclaimer: the function getTokenFromRemote was copied almost wholesale from https://github.com/manicminer/hamilton, an Apache 2.0-licensed repository
+*/
+
+func getTokenFromRemote(client *http.Client, config *OIDCAuthConfig) (string, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, config.OIDCRequestURL, http.NoBody)
+	if err != nil {
+		// TODO wrap error
+		return "", err
+	}
+	queryParams := req.URL.Query()
+	queryParams.Set("audience", "api://AzureADTokenExchange")
+	req.URL.RawQuery = queryParams.Encode()
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.OIDCRequestToken))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		// TODO wrap error
+		return "", err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || 300 <= resp.StatusCode {
+		// TODO reword better, consider reading body first
+		return "", fmt.Errorf("bad code")
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		// TODO wrap error
+		return "", err
+	}
+
+	var tokenRes tokenResp
+
+	if err := json.Unmarshal(body, &tokenRes); err != nil {
+		// TODO wrap error
+		return "", err
+	}
+
+	if tokenRes.Value == nil {
+		// TODO word better
+		return "", fmt.Errorf("nil token resp")
+	}
+
+	return *tokenRes.Value, nil
 }
 
 func consolidateToken(config *OIDCAuthConfig) (string, error) {
@@ -86,17 +154,27 @@ func (cred *oidcAuth) Validate(config *Config) tfdiags.Diagnostics {
 			"In order to use OpenID Connect credentials, a client ID is necessary",
 		))
 	}
-	/*
-		TODO Validate for oidc_request_url and oidc_request_token
-		This will change how the below diagnostic works
-	*/
-	if config.OIDCToken == "" && config.OIDCTokenFilePath == "" {
+	directTokenUnset := config.OIDCToken == "" && config.OIDCTokenFilePath == ""
+	indirectTokenUnset := config.OIDCRequestURL == "" || config.OIDCRequestToken == ""
+	if directTokenUnset && indirectTokenUnset {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Both OIDC Token and OIDC Token File Path are empty",
-			"In order to use OpenID Connect credentials, the access token must be provided, either directly or through a file",
+			"Both OIDC Token and OIDC Token File Path are empty, and the request url or request token are empty",
+			"In order to use OpenID Connect credentials, the access token must be provided. It is either directly provided in a variable or through a file, or indirectly through a request URL and request token (as in GitHub Actions)",
 		))
 	}
+	if directTokenUnset {
+		// check request URL and token
+		_, err := getTokenFromRemote(httpclient.New(context.Background()), config.OIDCAuthConfig)
+		if err != nil {
+			diags = diags.Append(tfdiags.Sourceless(
+				tfdiags.Error,
+				"Could not get token from request URL",
+				fmt.Sprintf("In order to use OpenID Connect credentials, an access token should be obtainable, but the following error was encountered while fetching the token: %s", err.Error()),
+			))
+		}
+	}
+	// This will work, even if both token and file path are empty
 	if _, err := consolidateToken(config.OIDCAuthConfig); err != nil {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
