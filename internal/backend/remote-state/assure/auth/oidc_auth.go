@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -85,7 +86,7 @@ func getTokenFromRemote(client *http.Client, config *OIDCAuthConfig) (string, er
 
 	if resp.StatusCode < 200 || 300 <= resp.StatusCode {
 		// TODO reword better, consider reading body first
-		return "", fmt.Errorf("bad code")
+		return "", errors.New("bad code")
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -103,7 +104,7 @@ func getTokenFromRemote(client *http.Client, config *OIDCAuthConfig) (string, er
 
 	if tokenRes.Value == nil || *tokenRes.Value == "" {
 		// TODO word better
-		return "", fmt.Errorf("nil token resp")
+		return "", errors.New("nil token resp")
 	}
 
 	return *tokenRes.Value, nil
@@ -124,7 +125,7 @@ func consolidateToken(config *OIDCAuthConfig) (string, error) {
 		}
 		file_token := string(b)
 		if token != "" && token != file_token {
-			return "", fmt.Errorf("token provided directly and through file do not match; either make them the same value or only provide one")
+			return "", errors.New("token provided directly and through file do not match; either make them the same value or only provide one")
 		}
 		token = file_token
 	}
