@@ -101,7 +101,7 @@ func getTokenFromRemote(client *http.Client, config *OIDCAuthConfig) (string, er
 		return "", err
 	}
 
-	if tokenRes.Value == nil {
+	if tokenRes.Value == nil || *tokenRes.Value == "" {
 		// TODO word better
 		return "", fmt.Errorf("nil token resp")
 	}
