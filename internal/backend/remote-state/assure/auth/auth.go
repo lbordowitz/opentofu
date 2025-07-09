@@ -8,6 +8,7 @@ import (
 )
 
 type Config struct {
+	*AzureCLIAuthConfig
 	*ClientBasicAuthConfig
 	*ClientCertificateAuthConfig
 	*OIDCAuthConfig

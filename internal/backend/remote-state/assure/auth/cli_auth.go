@@ -15,6 +15,10 @@ import (
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
+type AzureCLIAuthConfig struct {
+	CLIAuthDisabled bool
+}
+
 type azureCLICredentialAuth struct{}
 
 func (cred *azureCLICredentialAuth) Construct(_ context.Context, config *Config) (azcore.TokenCredential, error) {
@@ -26,6 +30,14 @@ func (cred *azureCLICredentialAuth) Construct(_ context.Context, config *Config)
 }
 func (cred *azureCLICredentialAuth) Validate(config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
+	if config.CLIAuthDisabled {
+		diags = diags.Append(tfdiags.Sourceless(
+			tfdiags.Error,
+			"CLI Auth is explicitly disabled",
+			"You set disable_cli to true, which prevents the CLI Auth from being used. Remove this unless you're testing internals or otherwise explicitly want to prevent CLI Authentication.",
+		))
+		return diags
+	}
 	// We'll try constructing it and getting a token
 	tempAuth, err := cred.Construct(context.Background(), config)
 	if err != nil {

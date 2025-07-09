@@ -200,6 +200,13 @@ func New(enc encryption.StateEncryption) backend.Backend {
 				Description: "Should OpenTofu use AzureAD Authentication to access the Blob?",
 				DefaultFunc: schema.EnvDefaultFunc("ARM_USE_AZUREAD", false),
 			},
+
+			"disable_cli": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Description: "Set to true if you don't want to use the Azure CLI to authenticate to Azure. Usually only set for tests. Defaults to false.",
+				Default:     false,
+			},
 		},
 	}
 
@@ -237,6 +244,9 @@ func (b *Backend) configure(ctx context.Context) error {
 	useAzureADAuthentication := data.Get("use_azuread_auth").(bool)
 
 	config := &auth.Config{
+		AzureCLIAuthConfig: &auth.AzureCLIAuthConfig{
+			CLIAuthDisabled: data.Get("disable_cli").(bool),
+		},
 		ClientBasicAuthConfig: &auth.ClientBasicAuthConfig{
 			ClientID:     data.Get("client_id").(string),
 			ClientSecret: data.Get("client_secret").(string),
@@ -292,6 +302,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	}
 
 	// Shared Access Key and SAS Token are both empty
+
 	// Get auth credentials
 	authMethod, err := auth.GetAuthMethod(config)
 	if err != nil {
@@ -313,6 +324,8 @@ func (b *Backend) configure(ctx context.Context) error {
 		return nil
 	}
 
+	// We are not using Azure AD Auth
+	// We're going to use these credentials to bootstrap obtaining the Shared Access Key credentials
 	authCred, err := authMethod.Construct(ctx, config)
 	if err != nil {
 		return err
