@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/auth"
 	"github.com/opentofu/opentofu/internal/httpclient"
 )
@@ -119,6 +120,38 @@ func createTestResources(t *testing.T, res *resourceNames, authCred azcore.Token
 		return nil, nil, fmt.Errorf("error creating storage container: %w", err)
 	}
 	return resourceGroupClient, containerClient, nil
+}
+
+var PERMISSIONS sas.AccountPermissions = sas.AccountPermissions{
+	Read:    true,
+	Write:   true,
+	Delete:  true,
+	List:    true,
+	Add:     true,
+	Create:  true,
+	Update:  true,
+	Process: true,
+}
+
+func getSASToken(sharedKey *sas.SharedKeyCredential) (string, error) {
+	utcNow := time.Now().UTC()
+
+	// account for servers being up to 5 minutes out
+	startDate := utcNow.Add(time.Minute * -5)
+	endDate := utcNow.Add(time.Hour * 24)
+
+	qps, err := sas.AccountSignatureValues{
+		Version:       sas.Version,
+		Protocol:      sas.ProtocolHTTPS,
+		StartTime:     startDate,
+		ExpiryTime:    endDate,
+		Permissions:   PERMISSIONS.String(),
+		ResourceTypes: "sco",
+	}.SignWithSharedKey(sharedKey)
+	if err != nil {
+		return "", err
+	}
+	return qps.Encode(), nil
 }
 
 func destroyTestResources(t *testing.T, resourceGroupClient *armresources.ResourceGroupsClient, res resourceNames) {
