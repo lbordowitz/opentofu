@@ -3,6 +3,7 @@ package assure
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"testing"
 
@@ -264,6 +265,7 @@ func TestAccBackendServicePrincipalClientSecret(t *testing.T) {
 	client_id := os.Getenv("TF_AZURE_TEST_CLIENT_ID")
 	client_secret := os.Getenv("TF_AZURE_TEST_SECRET")
 	if client_id == "" || client_secret == "" {
+		// TODO should we use t.Log + t.Skip() here instead?
 		t.Fatal(errors.New(`
 A client ID or client secret was not provided.
 Please set TF_AZURE_TEST_CLIENT_ID and TF_AZURE_TEST_SECRET, either manually or using the terraform plan in the meta-test folder.`))
@@ -314,4 +316,60 @@ Please set TF_AZURE_TEST_CLIENT_ID and TF_AZURE_TEST_SECRET, either manually or 
 
 	// TestBackendStateForceUnlock runs the both the TestBackendStateLocks test and the --force-unlock tests
 	backend.TestBackendStateForceUnlock(t, b1, b2)
+}
+
+// TestAccBackendServicePrincipalClientCertificate tests if the backend functions when using a PFX certificate file.
+func TestAccBackendServicePrincipalClientCertificate(t *testing.T) {
+	testAccAzureBackend(t)
+	rs := acctest.RandString(4)
+	res := testResourceNames(rs, "testState")
+	client_id := os.Getenv("TF_AZURE_TEST_CLIENT_ID")
+	cert_path := os.Getenv("TF_AZURE_TEST_CERT_PATH")
+	// cert_password may be empty
+	cert_password := os.Getenv("TF_AZURE_TEST_CERT_PASSWORD")
+	if client_id == "" || cert_path == "" {
+		// TODO should we use t.Log + t.Skip() here instead?
+		t.Fatal(errors.New("A certificate must be provided through TF_AZURE_TEST_CERT_PATH, and a client_id must be provided through TF_AZURE_TEST_CLIENT_ID"))
+	}
+	// Make sure we can open and read the file
+	cert_file, err := os.Open(cert_path)
+	if err != nil {
+		t.Fatalf("error opening cert file: %s", err.Error())
+	}
+	_, err = io.ReadAll(cert_file)
+	if err != nil {
+		t.Fatalf("error reading cert file: %s", err.Error())
+	}
+	cert_file.Close()
+
+	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authCred, err := authMethod.Construct(t.Context(), emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resourceGroupClient, _, err := createTestResources(t, &res, authCred)
+
+	t.Cleanup(func() {
+		destroyTestResources(t, resourceGroupClient, res)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b1 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name":        res.storageAccountName,
+		"container_name":              res.storageContainerName,
+		"key":                         res.storageKeyName,
+		"resource_group_name":         res.resourceGroup,
+		"client_id":                   client_id,
+		"client_certificate_path":     cert_path,
+		"client_certificate_password": cert_password,
+		"disable_cli":                 true,
+	})).(*Backend)
+
+	backend.TestBackendStates(t, b1)
 }

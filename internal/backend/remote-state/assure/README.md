@@ -33,7 +33,7 @@ With all of these configured, you'll be able to run the following tests:
 
 ### Running Basic Client Secret tests
 
-To run the secrets test, you need these variables:
+To run the secrets test, you will need these variables:
 
 ```bash
 export TF_AZURE_TEST_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
@@ -45,3 +45,25 @@ You can get those by going into the meta-test directory and following the instru
 With these additional environment variables configured, you'll be able to run the following tests:
 - TestAccBackendServicePrincipalClientSecret
 - TestAccRemoteClientServicePrincipalClientSecret
+
+### Running Basic Client Certificate test
+
+To run the certificates test, you will need these variables:
+
+```bash
+export TF_AZURE_TEST_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export TF_AZURE_TEST_CERT_PATH="meta-test/certs.pfx"
+export TF_AZURE_TEST_CERT_PASSWORD=sOmEpAsSwOrD
+```
+
+If you apply the meta-test workspace, the certificate will be generated for you and attached to an appropriately-permissioned application. Otherwise, you can generate your own certificate with the `openssl` utility command:
+
+```bash
+# Generating key+cert pair.
+~> openssl req -subj '/CN=myclientcertificate/O=MyCompany, Inc./ST=CA/C=US' \
+ -new -newkey rsa:4096 -sha256 -days 3 -nodes -x509 -keyout client.key -out client.crt
+# Creating a pfx bundle with the format required by the state backend.
+~> openssl pkcs12 -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -export -macalg sha1 -password "pass:" -out client.pfx -inkey client.key -in client.crt
+```
+
+You will then go to the Azure Portal UI and manually upload the public `client.crt` file to the certificates for your application.

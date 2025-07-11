@@ -215,6 +215,7 @@ func TestAccRemoteClientServicePrincipalClientSecret(t *testing.T) {
 	client_id := os.Getenv("TF_AZURE_TEST_CLIENT_ID")
 	client_secret := os.Getenv("TF_AZURE_TEST_SECRET")
 	if client_id == "" || client_secret == "" {
+		// TODO should we use t.Log + t.Skip() here instead?
 		t.Fatal(errors.New(`
 A client ID or client secret was not provided.
 Please set TF_AZURE_TEST_CLIENT_ID and TF_AZURE_TEST_SECRET, either manually or using the terraform plan in the meta-test folder.`))

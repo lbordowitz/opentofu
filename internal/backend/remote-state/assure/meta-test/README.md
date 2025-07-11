@@ -24,3 +24,10 @@ export TF_AZURE_TEST_SECRET=some~secret~string
 ```
 
 Copy and paste these into the command line to provide the secrets for the backend tests.
+
+A file called `certs.pfx` should also be created, which can be placed in an appropriate directory and used for certificate authentication by setting the path appropriately, perhaps something like:
+
+```bash
+export TF_AZURE_TEST_CERT_PATH="meta-test/certs.pfx"
+export TF_AZURE_TEST_CERT_PASSWORD=SoMePaSsWoRd
+```
