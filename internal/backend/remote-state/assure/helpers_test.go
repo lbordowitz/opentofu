@@ -156,6 +156,10 @@ func getSASToken(sharedKey *sas.SharedKeyCredential) (string, error) {
 	return qps.Encode(), nil
 }
 
+func deleteBlobs() {
+	// TODO implement this fully.
+}
+
 func destroyTestResources(t *testing.T, resourceGroupClient *armresources.ResourceGroupsClient, res resourceNames) {
 	future, err := resourceGroupClient.BeginDelete(context.Background(), res.resourceGroup, nil)
 	if err != nil {

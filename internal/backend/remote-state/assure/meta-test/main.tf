@@ -26,18 +26,18 @@ resource "azuread_application_password" "pw" {
 
 resource "tls_private_key" "priv_key" {
   algorithm = "RSA"
-  rsa_bits = 4096
+  rsa_bits  = 4096
 }
 
 resource "tls_self_signed_cert" "cert" {
   private_key_pem = tls_private_key.priv_key.private_key_pem
 
   # Certificate expires after 2 weeks.
-  validity_period_hours = 14*24
+  validity_period_hours = 14 * 24
 
   # Generate a new certificate if Terraform is run within two
   # days of the certificate's expiration time.
-  early_renewal_hours = 2*24
+  early_renewal_hours = 2 * 24
 
   # Reasonable set of uses for a server SSL certificate.
   allowed_uses = [
@@ -50,8 +50,8 @@ resource "tls_self_signed_cert" "cert" {
   subject {
     common_name  = "myclientcertificate"
     organization = "LF Projects, LLC"
-    province = "CA"
-    country = "US"
+    province     = "CA"
+    country      = "US"
   }
 }
 resource "azuread_application_certificate" "example" {
@@ -68,22 +68,28 @@ resource "random_string" "password" {
 }
 
 resource "pkcs12_from_pem" "my_pkcs12" {
-  password = random_string.password.result
-  cert_pem = tls_self_signed_cert.cert.cert_pem
-  private_key_pem  = tls_private_key.priv_key.private_key_pem
+  password        = random_string.password.result
+  cert_pem        = tls_self_signed_cert.cert.cert_pem
+  private_key_pem = tls_private_key.priv_key.private_key_pem
 }
 
 resource "local_file" "cert" {
-  filename = "certs.pfx"
-  content_base64     = pkcs12_from_pem.my_pkcs12.result
+  filename       = "certs.pfx"
+  content_base64 = pkcs12_from_pem.my_pkcs12.result
 }
 
-output "environment" {
-    value = <<-EOT
-            export TF_AZURE_TEST_CLIENT_ID=${azuread_application.tf_test_application.client_id}
-            export TF_AZURE_TEST_SECRET=${azuread_application_password.pw.value}
-            export TF_AZURE_TEST_CERT_PATH=${local_file.cert.filename}
-            export TF_AZURE_TEST_CERT_PASSWORD=${random_string.password.result}
-            EOT
-    sensitive = true
+module "msi" {
+  source = "./msi"
+  count  = var.use_msi ? 1 : 0
+
+  location         = var.location
+  ssh_pub_key_path = var.ssh_pub_key_path
+}
+
+locals {
+  msi_extra_env_vars = !var.use_msi ? "" : <<EOT
+export TF_AZURE_TEST_STORAGE_ACCOUNT_NAME=${module.msi[0].storage_account_name}
+export TF_AZURE_TEST_RESOURCE_GROUP_NAME=${module.msi[0].resource_group_name}
+export TF_AZURE_TEST_CONTAINER_NAME=${module.msi[0].container_name}
+EOT
 }

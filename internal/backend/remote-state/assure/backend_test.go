@@ -373,3 +373,33 @@ func TestAccBackendServicePrincipalClientCertificate(t *testing.T) {
 
 	backend.TestBackendStates(t, b1)
 }
+
+// TestAccBackendManagedServiceIdentity tests if the backend functions when using a managed service identity, like on an Azure VM.
+// Note: this test does NOT create its own resource group, storage account, or storage container. You must set up that infrastructure
+// manually, as well as the underlying managed service identity which this test depends upon.
+func TestAccBackendManagedServiceIdentity(t *testing.T) {
+	testAccAzureBackend(t)
+
+	storageAccountName := os.Getenv("TF_AZURE_TEST_STORAGE_ACCOUNT_NAME")
+	resourceGroupName := os.Getenv("TF_AZURE_TEST_RESOURCE_GROUP_NAME")
+	containerName := os.Getenv("TF_AZURE_TEST_CONTAINER_NAME")
+
+	if storageAccountName == "" || resourceGroupName == "" || containerName == "" {
+		// TODO should we use t.Log + t.Skip() here instead?
+		t.Fatal(errors.New("For MSI tests, all infrastructure must be set up ahead of time and passed through environment variables."))
+	}
+
+	b := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": storageAccountName,
+		"container_name":       containerName,
+		"key":                  "testState",
+		"resource_group_name":  resourceGroupName,
+		"use_msi":              true,
+		"disable_cli":          true,
+	})).(*Backend)
+
+	backend.TestBackendStates(t, b)
+
+	// Manually delete all blobs in the container
+	deleteBlobs()
+}

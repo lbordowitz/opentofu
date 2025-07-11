@@ -31,3 +31,31 @@ A file called `certs.pfx` should also be created, which can be placed in an appr
 export TF_AZURE_TEST_CERT_PATH="meta-test/certs.pfx"
 export TF_AZURE_TEST_CERT_PASSWORD=SoMePaSsWoRd
 ```
+
+### Managed Service Identity
+
+By default, the virtual machine, identity, and associated authorizations required for MSI testing are not set up by this workspace. In order to set those up, you need some extra variables:
+
+```bash
+$ tofu apply -show-sensitive -var 'use_msi=true' -var 'location=centralus' -var 'ssh_pub_key_path=~/.ssh/id_rsa.pub'
+```
+
+The last two variables are optional; the defaults have been provided here. After running this, some additional environment variables will be available.
+
+Additionally, there should be a small output with the ssh instructions, and the IP address of the VM:
+
+```bash
+ssh_instructions = "ssh azureadmin@xxx.xxx.xxx.xxx"
+```
+
+In order to tear down msi infrastructure, while keeping the rest of the credentials and setup, simply run the `tofu apply` without the `use_msi=true` variable.
+
+### Cleanup
+
+Simply run
+
+```bash
+$ tofu destroy
+```
+
+... and all the test infrastructure will be deleted.

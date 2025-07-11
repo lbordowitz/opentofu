@@ -31,7 +31,9 @@ With all of these configured, you'll be able to run the following tests:
 - TestAccRemoteClientAccessKeyBasic
 - TestAccRemoteClientSASToken
 
-### Running Basic Client Secret tests
+Besides these tests, every other acceptance test requires authentication by a service principal or client. The utility workspace in the `meta-test` folder will create the application for you, and will also manage the credentials. If you would like to do this manually, [follow this guide](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app) for creating an application registration. You'll note on the side that there is a section called "Certificates & secrets". You will want to use this for the client secret and client certificate tests below.
+
+### Running Client Secret tests
 
 To run the secrets test, you will need these variables:
 
@@ -46,7 +48,7 @@ With these additional environment variables configured, you'll be able to run th
 - TestAccBackendServicePrincipalClientSecret
 - TestAccRemoteClientServicePrincipalClientSecret
 
-### Running Basic Client Certificate test
+### Running Client Certificate test
 
 To run the certificates test, you will need these variables:
 
@@ -67,3 +69,46 @@ If you apply the meta-test workspace, the certificate will be generated for you 
 ```
 
 You will then go to the Azure Portal UI and manually upload the public `client.crt` file to the certificates for your application.
+
+### Running Managed Service Identity test
+
+We strongly recommend using the workspace in the `meta-test` folder. If you choose not to, use the subsection below as a guide for setting up the appropriate variables.
+
+Within this directory, compile all the tests:
+
+```bash
+$ GOOS=linux GOARCH=amd64 go test -c .
+```
+
+TODO Replace all references to "assure" with "azure"
+
+This will generate an `assure.test` file. Send this to your VM:
+
+```bash
+$ scp assure.test azureadmin@xxx.xxx.xxx.xxx:
+```
+
+Now, SSH into your VM:
+
+```bash
+$ ssh azureadmin@xxx.xxx.xxx.xxx
+```
+
+Set up the following environment variables:
+
+```bash
+export TF_AZURE_TEST=1
+export TF_ACC=1
+export ARM_LOCATION=centralus
+export ARM_SUBSCRIPTION_ID='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+export ARM_TENANT_ID='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+export TF_AZURE_TEST_STORAGE_ACCOUNT_NAME=acctestsaxxxx
+export TF_AZURE_TEST_RESOURCE_GROUP_NAME=acctestRG-backend-1234567890-xxxx
+export TF_AZURE_TEST_CONTAINER_NAME=acctestcont
+```
+
+Finally, run the MSI test:
+
+```bash
+$ ./assure.test -run "TestAcc.*ManagedServiceIdentity"
+```
