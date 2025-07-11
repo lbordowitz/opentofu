@@ -140,6 +140,7 @@ func (cred *oidcAuth) Validate(config *Config) tfdiags.Diagnostics {
 			"Use OIDC is not set",
 			"In order to use OpenID Connect credentials, use_oidc or the environment variable ARM_USE_OIDC must be set to true",
 		))
+		return diags
 	}
 	if config.TenantID == "" {
 		diags = diags.Append(tfdiags.Sourceless(

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/opentofu/opentofu/internal/backend"
 	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/auth"
@@ -150,7 +151,7 @@ func TestBackendPagination(t *testing.T) {
 	}
 }
 
-// TestAccBackendAccessKeyBasic tests if resources are created using basic access key.
+// TestAccBackendAccessKeyBasic tests if the backend functions when using basic access key.
 // The call to backend.TestBackendStates tests workspace creation, list and deletion.
 func TestAccBackendAccessKeyBasic(t *testing.T) {
 	testAccAzureBackend(t)
@@ -180,6 +181,7 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
 		"access_key":           res.storageAccountAccessKey,
+		"disable_cli":          true,
 	})).(*Backend)
 
 	backend.TestBackendStates(t, b1)
@@ -189,6 +191,64 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
 		"access_key":           res.storageAccountAccessKey,
+		"disable_cli":          true,
+	})).(*Backend)
+
+	// TestBackendStateForceUnlock runs the both the TestBackendStateLocks test and the --force-unlock tests
+	backend.TestBackendStateForceUnlock(t, b1, b2)
+}
+
+// TestAccBackendSASToken tests if the backend functions when using a SAS token.
+// The call to backend.TestBackendStates tests workspace creation, list and deletion.
+func TestAccBackendSASToken(t *testing.T) {
+	testAccAzureBackend(t)
+	rs := acctest.RandString(4)
+	res := testResourceNames(rs, "testState")
+
+	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authCred, err := authMethod.Construct(t.Context(), emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resourceGroupClient, _, err := createTestResources(t, &res, authCred)
+
+	t.Cleanup(func() {
+		destroyTestResources(t, resourceGroupClient, res)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	keycred, err := azblob.NewSharedKeyCredential(res.storageAccountName, res.storageAccountAccessKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sasToken, err := getSASToken(keycred)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b1 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"sas_token":            sasToken,
+		"disable_cli":          true,
+	})).(*Backend)
+
+	backend.TestBackendStates(t, b1)
+
+	b2 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"sas_token":            sasToken,
+		"disable_cli":          true,
 	})).(*Backend)
 
 	// TestBackendStateForceUnlock runs the both the TestBackendStateLocks test and the --force-unlock tests

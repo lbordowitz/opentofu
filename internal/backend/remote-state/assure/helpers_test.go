@@ -167,6 +167,7 @@ func destroyTestResources(t *testing.T, resourceGroupClient *armresources.Resour
 
 func emptyAuthConfig() *auth.Config {
 	return &auth.Config{
+		AzureCLIAuthConfig:          &auth.AzureCLIAuthConfig{},
 		ClientBasicAuthConfig:       &auth.ClientBasicAuthConfig{},
 		ClientCertificateAuthConfig: &auth.ClientCertificateAuthConfig{},
 		OIDCAuthConfig:              &auth.OIDCAuthConfig{},
