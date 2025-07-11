@@ -2,6 +2,8 @@ package assure
 
 import (
 	"context"
+	"errors"
+	"os"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -152,7 +154,6 @@ func TestBackendPagination(t *testing.T) {
 }
 
 // TestAccBackendAccessKeyBasic tests if the backend functions when using basic access key.
-// The call to backend.TestBackendStates tests workspace creation, list and deletion.
 func TestAccBackendAccessKeyBasic(t *testing.T) {
 	testAccAzureBackend(t)
 	rs := acctest.RandString(4)
@@ -176,6 +177,7 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The call to backend.TestBackendStates tests workspace creation, list and deletion.
 	b1 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
 		"storage_account_name": res.storageAccountName,
 		"container_name":       res.storageContainerName,
@@ -199,7 +201,6 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 }
 
 // TestAccBackendSASToken tests if the backend functions when using a SAS token.
-// The call to backend.TestBackendStates tests workspace creation, list and deletion.
 func TestAccBackendSASToken(t *testing.T) {
 	testAccAzureBackend(t)
 	rs := acctest.RandString(4)
@@ -248,6 +249,66 @@ func TestAccBackendSASToken(t *testing.T) {
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
 		"sas_token":            sasToken,
+		"disable_cli":          true,
+	})).(*Backend)
+
+	backend.TestBackendStateForceUnlock(t, b1, b2)
+}
+
+// TestAccBackendServicePrincipalClientSecret tests if the backend functions when using a client ID and secret.
+func TestAccBackendServicePrincipalClientSecret(t *testing.T) {
+	testAccAzureBackend(t)
+	rs := acctest.RandString(4)
+	res := testResourceNames(rs, "testState")
+
+	client_id := os.Getenv("TF_AZURE_TEST_CLIENT_ID")
+	client_secret := os.Getenv("TF_AZURE_TEST_SECRET")
+	if client_id == "" || client_secret == "" {
+		t.Fatal(errors.New(`
+A client ID or client secret was not provided.
+Please set TF_AZURE_TEST_CLIENT_ID and TF_AZURE_TEST_SECRET, either manually or using the terraform plan in the meta-test folder.`))
+	}
+	if res.tenantID == "" {
+		t.Fatal(errors.New("A tenant ID must be provided through ARM_TENANT_ID in order to run this test."))
+	}
+
+	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authCred, err := authMethod.Construct(t.Context(), emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resourceGroupClient, _, err := createTestResources(t, &res, authCred)
+
+	t.Cleanup(func() {
+		destroyTestResources(t, resourceGroupClient, res)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b1 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"resource_group_name":  res.resourceGroup,
+		"client_id":            client_id,
+		"client_secret":        client_secret,
+		"disable_cli":          true,
+	})).(*Backend)
+
+	backend.TestBackendStates(t, b1)
+
+	b2 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"resource_group_name":  res.resourceGroup,
+		"client_id":            client_id,
+		"client_secret":        client_secret,
 		"disable_cli":          true,
 	})).(*Backend)
 

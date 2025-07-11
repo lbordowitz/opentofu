@@ -1,0 +1,47 @@
+Refer to the [official documentation](https://opentofu.org/docs/language/settings/backends/azurerm/) for a quick reference of available authentication methods.
+
+# Running Tests
+
+The files `backend_test.go` and `client_test.go` contain various unit tests and acceptance tests for ensuring the backend state management is running properly. Acceptance tests are any test whose name begins with `TestAcc...`; everything else is a unit test.
+
+You should be able to run unit tests without any further configuration, and acceptance tests are skipped by default.
+
+## Running Acceptance Tests
+
+You will need to set the following environment variables in order to run the acceptance tests:
+
+```bash
+export TF_AZURE_TEST=1
+export TF_ACC=1
+```
+
+Additionally, you'll need to set your Azure location, subscription id, and tenant id;
+
+```bash
+export ARM_LOCATION=centralus
+export ARM_SUBSCRIPTION_ID='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+export ARM_TENANT_ID='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+```
+
+We recommend using the Azure CLI (`az`) to authenticate to Azure for the infrastructure bootstrapping steps, which create a resource group, storage account, and blob storage container in your configured subscription.
+
+With all of these configured, you'll be able to run the following tests:
+- TestAccBackendAccessKeyBasic
+- TestAccBackendSASToken
+- TestAccRemoteClientAccessKeyBasic
+- TestAccRemoteClientSASToken
+
+### Running Basic Client Secret tests
+
+To run the secrets test, you need these variables:
+
+```bash
+export TF_AZURE_TEST_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+export TF_AZURE_TEST_SECRET=some~secret~string
+```
+
+You can get those by going into the meta-test directory and following the instructions there, or manually obtaining a secret client. Instructions for manually creating a Client Secret for your existing app registration can be found [here](https://learn.microsoft.com/en-us/azure/industry/training-services/microsoft-community-training/public-preview-version/frequently-asked-questions/generate-new-clientsecret-link-to-key-vault#check-and-update-client-secret-expiration-date) in the first part of this guide. You do not need to put the secret in a vault or update the application configuration.
+
+With these additional environment variables configured, you'll be able to run the following tests:
+- TestAccBackendServicePrincipalClientSecret
+- TestAccRemoteClientServicePrincipalClientSecret

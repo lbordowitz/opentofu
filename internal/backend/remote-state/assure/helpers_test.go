@@ -38,6 +38,7 @@ func testAccAzureBackend(t *testing.T) {
 
 type resourceNames struct {
 	subscriptionID          string
+	tenantID                string
 	resourceGroup           string
 	location                string
 	storageAccountName      string
@@ -49,6 +50,7 @@ type resourceNames struct {
 func testResourceNames(rString string, keyName string) resourceNames {
 	return resourceNames{
 		subscriptionID:       os.Getenv("ARM_SUBSCRIPTION_ID"),
+		tenantID:             os.Getenv("ARM_TENANT_ID"),
 		resourceGroup:        fmt.Sprintf("acctestRG-backend-%s-%s", strings.Replace(time.Now().Local().Format("060102150405.00"), ".", "", 1), rString),
 		location:             os.Getenv("ARM_LOCATION"),
 		storageAccountName:   fmt.Sprintf("acctestsa%s", rString),
@@ -159,6 +161,7 @@ func destroyTestResources(t *testing.T, resourceGroupClient *armresources.Resour
 	if err != nil {
 		t.Fatalf("Error deleting Resource Group: %v", err)
 	}
+	// TODO do we really need to wait for it to delete?
 	_, err = future.PollUntilDone(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Error waiting for the deletion of Resource Group: %v", err)

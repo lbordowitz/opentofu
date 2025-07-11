@@ -1,9 +1,12 @@
 package assure
 
 import (
+	"errors"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/opentofu/opentofu/internal/backend"
 	"github.com/opentofu/opentofu/internal/backend/remote-state/assure/auth"
 	"github.com/opentofu/opentofu/internal/encryption"
@@ -86,7 +89,7 @@ func TestPutMaintainsMetadata(t *testing.T) {
 	}
 }
 
-func TestRemoteClientAccessKeyBasic(t *testing.T) {
+func TestAccRemoteClientAccessKeyBasic(t *testing.T) {
 	testAccAzureBackend(t)
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
@@ -114,6 +117,7 @@ func TestRemoteClientAccessKeyBasic(t *testing.T) {
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
 		"access_key":           res.storageAccountAccessKey,
+		"disable_cli":          true,
 	})).(*Backend)
 
 	s1, err := b1.StateMgr(t.Context(), backend.DefaultStateName)
@@ -128,6 +132,141 @@ func TestRemoteClientAccessKeyBasic(t *testing.T) {
 		"container_name":       res.storageContainerName,
 		"key":                  res.storageKeyName,
 		"access_key":           res.storageAccountAccessKey,
+		"disable_cli":          true,
+	})).(*Backend)
+
+	s2, err := b2.StateMgr(t.Context(), backend.DefaultStateName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	remote.TestRemoteLocks(t, s1.(*remote.State).Client, s2.(*remote.State).Client)
+}
+
+func TestAccRemoteClientSASToken(t *testing.T) {
+	testAccAzureBackend(t)
+	rs := acctest.RandString(4)
+	res := testResourceNames(rs, "testState")
+
+	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authCred, err := authMethod.Construct(t.Context(), emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resourceGroupClient, _, err := createTestResources(t, &res, authCred)
+
+	t.Cleanup(func() {
+		destroyTestResources(t, resourceGroupClient, res)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	keycred, err := azblob.NewSharedKeyCredential(res.storageAccountName, res.storageAccountAccessKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sasToken, err := getSASToken(keycred)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b1 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"sas_token":            sasToken,
+		"disable_cli":          true,
+	})).(*Backend)
+
+	s1, err := b1.StateMgr(t.Context(), backend.DefaultStateName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	remote.TestClient(t, s1.(*remote.State).Client)
+
+	b2 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"sas_token":            sasToken,
+		"disable_cli":          true,
+	})).(*Backend)
+
+	s2, err := b2.StateMgr(t.Context(), backend.DefaultStateName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	remote.TestRemoteLocks(t, s1.(*remote.State).Client, s2.(*remote.State).Client)
+}
+
+func TestAccRemoteClientServicePrincipalClientSecret(t *testing.T) {
+	testAccAzureBackend(t)
+	rs := acctest.RandString(4)
+	res := testResourceNames(rs, "testState")
+
+	client_id := os.Getenv("TF_AZURE_TEST_CLIENT_ID")
+	client_secret := os.Getenv("TF_AZURE_TEST_SECRET")
+	if client_id == "" || client_secret == "" {
+		t.Fatal(errors.New(`
+A client ID or client secret was not provided.
+Please set TF_AZURE_TEST_CLIENT_ID and TF_AZURE_TEST_SECRET, either manually or using the terraform plan in the meta-test folder.`))
+	}
+	if res.tenantID == "" {
+		t.Fatal(errors.New("A tenant ID must be provided through ARM_TENANT_ID in order to run this test."))
+	}
+
+	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	authCred, err := authMethod.Construct(t.Context(), emptyAuthConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resourceGroupClient, _, err := createTestResources(t, &res, authCred)
+
+	t.Cleanup(func() {
+		destroyTestResources(t, resourceGroupClient, res)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b1 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"resource_group_name":  res.resourceGroup,
+		"client_id":            client_id,
+		"client_secret":        client_secret,
+		"disable_cli":          true,
+	})).(*Backend)
+
+	s1, err := b1.StateMgr(t.Context(), backend.DefaultStateName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	remote.TestClient(t, s1.(*remote.State).Client)
+
+	b2 := backend.TestBackendConfig(t, New(encryption.StateEncryptionDisabled()), backend.TestWrapConfig(map[string]interface{}{
+		"storage_account_name": res.storageAccountName,
+		"container_name":       res.storageContainerName,
+		"key":                  res.storageKeyName,
+		"access_key":           res.storageAccountAccessKey,
+		"resource_group_name":  res.resourceGroup,
+		"client_id":            client_id,
+		"client_secret":        client_secret,
+		"disable_cli":          true,
 	})).(*Backend)
 
 	s2, err := b2.StateMgr(t.Context(), backend.DefaultStateName)
