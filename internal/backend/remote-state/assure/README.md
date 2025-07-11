@@ -72,7 +72,7 @@ You will then go to the Azure Portal UI and manually upload the public `client.c
 
 ### Running Managed Service Identity test
 
-We strongly recommend using the workspace in the `meta-test` folder. If you choose not to, use the subsection below as a guide for setting up the appropriate variables.
+We strongly recommend using the workspace in the `meta-test` folder to set up the VM and associated authorizations.
 
 Within this directory, compile all the tests:
 
@@ -110,5 +110,5 @@ export TF_AZURE_TEST_CONTAINER_NAME=acctestcont
 Finally, run the MSI test:
 
 ```bash
-$ ./assure.test -run "TestAcc.*ManagedServiceIdentity"
+$ ./assure.test -test.v -test.run "TestAcc.*ManagedServiceIdentity"
 ```
