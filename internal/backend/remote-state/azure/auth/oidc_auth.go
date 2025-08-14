@@ -61,60 +61,41 @@ func (cred *oidcAuth) Construct(ctx context.Context, config *Config) (azcore.Tok
 	)
 }
 
-type tokenResp struct {
-	Count *int    `json:"count"`
-	Value *string `json:"value"`
+type TokenResponse struct {
+	Value string `json:"value"`
 }
 
-/*
-// TODO do I need this disclaimer? In a future state, we will not be using this package in the code, so the license will not necessarily still be provided
-Legal Disclaimer: the function getTokenFromRemote was copied almost wholesale from https://github.com/manicminer/hamilton, an Apache 2.0-licensed repository
-*/
-
 func getTokenFromRemote(client *http.Client, config OIDCAuthConfig) (string, error) {
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, config.OIDCRequestURL, http.NoBody)
+	// GET from the request URL, using the bearer token
+	req, err := http.NewRequest(http.MethodGet, config.OIDCRequestURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("error forming request: %w", err)
+		return "", fmt.Errorf("malformed token request: %w", err)
 	}
-	queryParams := req.URL.Query()
-	queryParams.Set("audience", "api://AzureADTokenExchange")
-	req.URL.RawQuery = queryParams.Encode()
+	req.Header.Add("Authorization", "Bearer "+config.OIDCRequestToken)
+	req.Header.Add("Accept", "application/json; api-version=2.0")
+	req.Header.Add("Content-Type", "application/json")
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.OIDCRequestToken))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	query := req.URL.Query()
+	query.Set("audience", "api://AzureADTokenExchange")
+	req.URL.RawQuery = query.Encode()
 
+	// Read the response
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("error processing OIDC token request request: %w", err)
+		return "", fmt.Errorf("error obtaining token: %w", err)
 	}
-
 	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-
-	if resp.StatusCode < 200 || 300 <= resp.StatusCode {
-		if err != nil {
-			return "", fmt.Errorf("error processing OIDC request: received status code %d", resp.StatusCode)
-		}
-		return "", fmt.Errorf("error processing OIDC request: %s", string(body))
-	}
-
+	raw_token, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("error reading body of OIDC response: %w", err)
+		return "", fmt.Errorf("io error reading token response body: %w", err)
 	}
-
-	var tokenRes tokenResp
-
-	if err := json.Unmarshal(body, &tokenRes); err != nil {
-		return "", fmt.Errorf("error decoding OIDC json: %w", err)
+	var token TokenResponse
+	// Provide that response as the access token.
+	err = json.Unmarshal(raw_token, &token)
+	if err != nil {
+		return "", fmt.Errorf("error parsing json of token response body: %w", err)
 	}
-
-	if tokenRes.Value == nil || *tokenRes.Value == "" {
-		return "", errors.New("no token value found in the OIDC response body")
-	}
-
-	return *tokenRes.Value, nil
+	return token.Value, nil
 }
 
 func consolidateToken(config OIDCAuthConfig) (string, error) {
