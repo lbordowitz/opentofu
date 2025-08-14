@@ -45,4 +45,4 @@ jobs:
 
       - name: "Apply on tofu folder"
         working-directory: azure_test_tf
-        run: ./tofu apply
+        run: ./tofu apply -y
