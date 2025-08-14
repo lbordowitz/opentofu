@@ -87,6 +87,7 @@ func getTokenFromRemote(client *http.Client, config OIDCAuthConfig) (string, err
 		return "", fmt.Errorf("error obtaining token: %w", err)
 	}
 	defer resp.Body.Close()
+<<<<<<< HEAD
 	rawToken, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("io error reading token response body: %w", err)
@@ -100,6 +101,18 @@ func getTokenFromRemote(client *http.Client, config OIDCAuthConfig) (string, err
 	if err != nil {
 		return "", fmt.Errorf("error parsing json of token response body: %w", err)
 	}
+=======
+	raw_token, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("io error reading token response body: %w", err)
+	}
+	var token TokenResponse
+	// Provide that response as the access token.
+	err = json.Unmarshal(raw_token, &token)
+	if err != nil {
+		return "", fmt.Errorf("error parsing json of token response body: %w", err)
+	}
+>>>>>>> b084924161 (testing oidc github changes)
 	return token.Value, nil
 }
 
