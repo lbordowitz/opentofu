@@ -1,5 +1,5 @@
 terraform {
-  backend "assure" {
+  backend "azurerm" {
     resource_group_name  = "storage-test-1"
     storage_account_name = "larrybostoragetest69420"
     container_name       = "arm-state"
