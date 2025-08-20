@@ -15,7 +15,7 @@ import (
 
 type Config struct {
 	AzureCLIAuthConfig
-	ClientBasicAuthConfig
+	ClientSecretCredentialAuthConfig
 	ClientCertificateAuthConfig
 	OIDCAuthConfig
 	MSIAuthConfig
@@ -30,7 +30,7 @@ type AuthMethod interface {
 	// Validate ensures this authentication method has the configuration variables and is
 	// the appropriate method to use. A nil return for diagnostics implies that there is no
 	// need to look further for authentication methods.
-	Validate(config *Config) tfdiags.Diagnostics
+	Validate(ctx context.Context, config *Config) tfdiags.Diagnostics
 
 	// AugmentConfig should be called to ensure the config has all proper storage names
 	// when attempting to get the storage account's access keys. It will return an error if
@@ -38,23 +38,23 @@ type AuthMethod interface {
 	//
 	// Note: only the CLI is really able to actually *change* the config, by obtaining information
 	// out of the azure profile saved on the filesystem.
-	AugmentConfig(config *Config) error
+	AugmentConfig(ctx context.Context, config *Config) error
 
 	// Name provides a simple english name for the auth method; used for debugging
 	Name() string
 }
 
-func GetAuthMethod(config *Config) (AuthMethod, error) {
+func GetAuthMethod(ctx context.Context, config *Config) (AuthMethod, error) {
 	authMethods := []AuthMethod{
 		&clientCertAuth{},
-		&clientBasicAuth{},
+		&clientSecretCredentialAuth{},
 		&oidcAuth{},
 		&managedIdentityAuth{},
 		&azureCLICredentialAuth{},
 	}
 	var diags tfdiags.Diagnostics
 	for _, authMethod := range authMethods {
-		if d := authMethod.Validate(config); d.HasErrors() {
+		if d := authMethod.Validate(ctx, config); d.HasErrors() {
 			diags = diags.Append(d)
 			continue
 		}

@@ -15,7 +15,9 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
@@ -99,8 +101,10 @@ func createTestResources(t *testing.T, res *resourceNames, authCred azcore.Token
 	containerClient, key, err := auth.NewContainerClientWithSharedKeyCredentialAndKey(
 		t.Context(),
 		auth.StorageAddresses{
+			CloudConfig:      cloud.AzurePublic,
 			SubscriptionID:   res.subscriptionID,
 			StorageAccount:   res.storageAccountName,
+			StorageSuffix:    "core.windows.net",
 			ResourceGroup:    res.resourceGroup,
 			StorageContainer: res.storageContainerName,
 		},
@@ -153,8 +157,52 @@ func getSASToken(sharedKey *sas.SharedKeyCredential) (string, error) {
 	return qps.Encode(), nil
 }
 
-func deleteBlobs() {
+func deleteBlobsInMSI(t *testing.T, storageAccountName, resourceGroupName, containerName string) {
+	client := httpclient.New(t.Context())
+
 	// TODO implement this fully.
+	authCred, err := azidentity.NewManagedIdentityCredential(
+		&azidentity.ManagedIdentityCredentialOptions{ClientOptions: azcore.ClientOptions{
+			Telemetry: policy.TelemetryOptions{
+				Disabled: true,
+			},
+			Transport: client,
+			Cloud:     cloud.AzurePublic,
+		}},
+	)
+	if err != nil {
+		t.Logf("Skipping deleting blobs in container %s due to error obtaining credentials: %v", containerName, err)
+		return
+	}
+	names := auth.StorageAddresses{
+		CloudConfig:      cloud.AzurePublic,
+		ResourceGroup:    resourceGroupName,
+		StorageAccount:   storageAccountName,
+		StorageContainer: containerName,
+		StorageSuffix:    "core.windows.net",
+	}
+
+	containerClient, err := auth.NewContainerClient(t.Context(), names, authCred)
+	if err != nil {
+		t.Logf("Skipping deleting blobs in container %s due to error obtaining container client: %v", containerName, err)
+		return
+	}
+
+	pager := containerClient.NewListBlobsFlatPager(nil)
+	for pager.More() {
+		resp, err := pager.NextPage(t.Context())
+		if err != nil || resp.Segment == nil || resp.Segment.BlobItems == nil {
+			t.Logf("error getting blob page, ignoring and continuing: %v", err)
+			continue
+		}
+		for _, obj := range resp.Segment.BlobItems {
+			_, err := containerClient.NewBlobClient(*obj.Name).Delete(t.Context(), nil)
+			if err != nil {
+				t.Logf("error deleting blob, ignoring and continuing: %v", err)
+				continue
+			}
+		}
+	}
 }
 
 func destroyTestResources(t *testing.T, resourceGroupClient *armresources.ResourceGroupsClient, res resourceNames) {
@@ -169,10 +217,10 @@ func emptyAuthConfig() *auth.Config {
 		AzureCLIAuthConfig: auth.AzureCLIAuthConfig{
 			CLIAuthEnabled: true,
 		},
-		ClientBasicAuthConfig:       auth.ClientBasicAuthConfig{},
-		ClientCertificateAuthConfig: auth.ClientCertificateAuthConfig{},
-		OIDCAuthConfig:              auth.OIDCAuthConfig{},
-		MSIAuthConfig:               auth.MSIAuthConfig{},
-		StorageAddresses:            auth.StorageAddresses{},
+		ClientSecretCredentialAuthConfig: auth.ClientSecretCredentialAuthConfig{},
+		ClientCertificateAuthConfig:      auth.ClientCertificateAuthConfig{},
+		OIDCAuthConfig:                   auth.OIDCAuthConfig{},
+		MSIAuthConfig:                    auth.MSIAuthConfig{},
+		StorageAddresses:                 auth.StorageAddresses{},
 	}
 }

@@ -35,27 +35,27 @@ func clientOptions(client *http.Client, cloudConfig cloud.Configuration) policy.
 
 // NewResourceClient gets a client for resource groups. This is strictly only used in testing.
 func NewResourceClient(client *http.Client, authCred azcore.TokenCredential, subscriptionID string) (*armresources.ResourceGroupsClient, error) {
-	resourcesClientFactory, err := armresources.NewClientFactory(subscriptionID, authCred, &arm.ClientOptions{
+	resourceClient, err := armresources.NewResourceGroupsClient(subscriptionID, authCred, &arm.ClientOptions{
 		ClientOptions:         clientOptions(client, cloud.AzurePublic),
 		DisableRPRegistration: false,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error getting resource client factory: %w", err)
+		return nil, fmt.Errorf("error getting resource client: %w", err)
 	}
-	return resourcesClientFactory.NewResourceGroupsClient(), nil
+	return resourceClient, nil
 }
 
 // NewStorageAccountsClient gets a client for the storage account with the given auth credentials.
 // This should only be used for testing and internally within this package.
 func NewStorageAccountsClient(client *http.Client, authCred azcore.TokenCredential, cloudConfig cloud.Configuration, subscriptionID string) (*armstorage.AccountsClient, error) {
-	storageClientFactory, err := armstorage.NewClientFactory(subscriptionID, authCred, &arm.ClientOptions{
+	storageClient, err := armstorage.NewAccountsClient(subscriptionID, authCred, &arm.ClientOptions{
 		ClientOptions:         clientOptions(client, cloudConfig),
 		DisableRPRegistration: false,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error getting storage client factory: %w", err)
+		return nil, fmt.Errorf("error getting storage client: %w", err)
 	}
-	return storageClientFactory.NewAccountsClient(), nil
+	return storageClient, nil
 }
 
 type StorageAddresses struct {
@@ -63,11 +63,12 @@ type StorageAddresses struct {
 	ResourceGroup    string
 	StorageAccount   string
 	StorageContainer string
+	StorageSuffix    string
 	SubscriptionID   string
 	TenantID         string
 }
 
-// NewContainerClientWithSharedKeyCredentialAndKey gets a container client authenticated with
+// NewContainerClientWithSharedKeyCredential gets a container client authenticated with
 // a shared Storage Account Access Key, using previously obtained authentication credentials to
 // obtain said key from the Storage Account.
 func NewContainerClientWithSharedKeyCredential(ctx context.Context, names StorageAddresses, authCred azcore.TokenCredential) (*container.Client, error) {
@@ -123,31 +124,36 @@ func NewContainerClientWithSharedKeyCredentialAndKey(ctx context.Context, names 
 	return newContainerClientFromStorageAccessKey(client, names, storageAccessKey)
 }
 
-func CloudConfigFromAddresses(ctx context.Context, environment, metadataHost string) (cloud.Configuration, error) {
+const STORAGE cloud.ServiceName = "storage"
+
+func CloudConfigFromAddresses(ctx context.Context, environment, metadataHost string) (cloud.Configuration, string, error) {
 	if metadataHost != "" {
-		return CloudConfigFromMetadataHost(ctx, metadataHost)
+		config, err := CloudConfigFromMetadataHost(ctx, metadataHost)
+		return config, config.Services[STORAGE].Endpoint, err
 	}
 
 	// These environments come from the hamilton Azure library, which was the predecessor to this implementation
 	// https://github.com/manicminer/hamilton/blob/v0.44.0/environments/environments.go#L103-L118
 	switch environment {
 	case "", "public", "global", "canary":
-		return cloud.AzurePublic, nil
+		return cloud.AzurePublic, "core.windows.net", nil
 	case "usgovernment", "usgovernmentl4", "dod", "usgovernmentl5":
-		return cloud.AzureGovernment, nil
+		return cloud.AzureGovernment, "core.usgovcloudapi.net", nil
 	case "china":
-		return cloud.AzureChina, nil
+		return cloud.AzureChina, "core.chinacloudapi.cn", nil
 	}
-	return cloud.Configuration{}, fmt.Errorf("unknown environment identifier: %s", environment)
+	return cloud.Configuration{}, "", fmt.Errorf("unknown environment identifier: %s", environment)
 }
 
 type Authentication struct {
-	LoginEndpoint string `json:"loginEndpoint"`
+	LoginEndpoint string   `json:"loginEndpoint"`
+	Audiences     []string `json:"audiences"`
 }
 
 type Environment struct {
-	Authentication  Authentication `json:"authentication"`
-	ResourceManager string         `json:"resourceManager"`
+	Authentication  Authentication    `json:"authentication"`
+	ResourceManager string            `json:"resourceManager"`
+	Suffixes        map[string]string `json:"suffixes"`
 }
 
 func CloudConfigFromMetadataHost(ctx context.Context, metadataHost string) (cloud.Configuration, error) {
@@ -168,11 +174,25 @@ func CloudConfigFromMetadataHost(ctx context.Context, metadataHost string) (clou
 		return cloud.Configuration{}, err
 	}
 
+	storageSuffix, ok := environment.Suffixes["storage"]
+	if !ok {
+		return cloud.Configuration{}, errors.New("could not find storage endpoint in given metadata host")
+	}
+	if len(environment.Authentication.Audiences) == 0 {
+		return cloud.Configuration{}, errors.New("could not find token audience in given metadata host")
+	}
+	audience := environment.Authentication.Audiences[0]
+
 	return cloud.Configuration{
 		ActiveDirectoryAuthorityHost: environment.Authentication.LoginEndpoint,
 		Services: map[cloud.ServiceName]cloud.ServiceConfiguration{
 			cloud.ResourceManager: {
 				Endpoint: environment.ResourceManager,
+				Audience: audience,
+			},
+			STORAGE: {
+				Endpoint: storageSuffix,
+				Audience: audience,
 			},
 		},
 	}, nil
@@ -189,8 +209,7 @@ func NewContainerClientFromStorageAccessKey(ctx context.Context, names StorageAd
 // containerURL must only be called once it is verified that the StorageAccount and StorageContainer
 // names are valid in Azure.
 func containerURL(names StorageAddresses) string {
-	// TODO check whether this works correctly for Azure stack and compliance environments
-	return fmt.Sprintf("https://%s.blob.core.windows.net/%s", names.StorageAccount, names.StorageContainer)
+	return fmt.Sprintf("https://%s.blob.%s/%s", names.StorageAccount, names.StorageSuffix, names.StorageContainer)
 }
 
 func newContainerClientFromStorageAccessKey(client *http.Client, names StorageAddresses, storageAccessKey string) (*container.Client, string, error) {
@@ -209,7 +228,7 @@ func newContainerClientFromStorageAccessKey(client *http.Client, names StorageAd
 	return containerClient, storageAccessKey, nil
 }
 
-// NewContainerClient gets a client authenticated with a Shared Access Signature
+// NewContainerClientFromSAS gets a client authenticated with a Shared Access Signature
 func NewContainerClientFromSAS(ctx context.Context, names StorageAddresses, sasToken string) (*container.Client, error) {
 	client := httpclient.New(ctx)
 	url := containerURL(names)

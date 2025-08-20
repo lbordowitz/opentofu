@@ -30,6 +30,8 @@ type OIDCAuthConfig struct {
 
 type oidcAuth struct{}
 
+var _ AuthMethod = &oidcAuth{}
+
 func (cred *oidcAuth) Name() string {
 	return "OpenID Connect Auth"
 }
@@ -85,13 +87,16 @@ func getTokenFromRemote(client *http.Client, config OIDCAuthConfig) (string, err
 		return "", fmt.Errorf("error obtaining token: %w", err)
 	}
 	defer resp.Body.Close()
-	raw_token, err := io.ReadAll(resp.Body)
+	rawToken, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("io error reading token response body: %w", err)
 	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("non-2xx response: status code %d, body: %s", resp.StatusCode, rawToken)
+	}
 	var token TokenResponse
 	// Provide that response as the access token.
-	err = json.Unmarshal(raw_token, &token)
+	err = json.Unmarshal(rawToken, &token)
 	if err != nil {
 		return "", fmt.Errorf("error parsing json of token response body: %w", err)
 	}
@@ -100,27 +105,28 @@ func getTokenFromRemote(client *http.Client, config OIDCAuthConfig) (string, err
 
 func consolidateToken(config OIDCAuthConfig) (string, error) {
 	token := config.OIDCToken
-	if config.OIDCTokenFilePath != "" {
-		// read token from file. Use as token if provided is empty, or check that they're the same
-		b, err := os.ReadFile(config.OIDCTokenFilePath)
-		if err != nil {
-			return "", fmt.Errorf("error reading token file: %w", err)
-		}
-		file_token := string(b)
-		if token != "" && token != file_token {
-			return "", errors.New("token provided directly and through file do not match; either make them the same value or only provide one")
-		}
-		token = file_token
+	if config.OIDCTokenFilePath == "" {
+		return token, nil
 	}
-	return token, nil
+
+	b, err := os.ReadFile(config.OIDCTokenFilePath)
+	if err != nil {
+		return "", fmt.Errorf("error reading token file: %w", err)
+	}
+
+	fileToken := string(b)
+	if token != "" && token != fileToken {
+		return "", errors.New("token provided directly and through file do not match; either make them the same value or only provide one")
+	}
+	return fileToken, nil
 }
 
-func (cred *oidcAuth) Validate(config *Config) tfdiags.Diagnostics {
+func (cred *oidcAuth) Validate(ctx context.Context, config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
 	if !config.UseOIDC {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: OpenID Connect credentials",
+			"Azure OpenID Connect Auth: use_oidc set to false",
 			"use_oidc or the environment variable ARM_USE_OIDC must be set to true",
 		))
 		return diags
@@ -128,14 +134,14 @@ func (cred *oidcAuth) Validate(config *Config) tfdiags.Diagnostics {
 	if config.TenantID == "" {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: OpenID Connect credentials",
+			"Azure OpenID Connect Auth: missing Tenant ID",
 			"Tenant ID is required",
 		))
 	}
 	if config.ClientID == "" {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: OpenID Connect credentials",
+			"Azure OpenID Connect Auth: missing Client ID",
 			"Client ID is required",
 		))
 	}
@@ -144,17 +150,17 @@ func (cred *oidcAuth) Validate(config *Config) tfdiags.Diagnostics {
 	if directTokenUnset && indirectTokenUnset {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: OpenID Connect credentials",
+			"Azure OpenID Connect Auth: missing access token",
 			"An access token must be provided, either directly with a variable or through a file, or indirectly through a request URL and request token (as in GitHub Actions)",
 		))
 	}
 	if directTokenUnset {
 		// check request URL and token
-		_, err := getTokenFromRemote(httpclient.New(context.Background()), config.OIDCAuthConfig)
+		_, err := getTokenFromRemote(httpclient.New(ctx), config.OIDCAuthConfig)
 		if err != nil {
 			diags = diags.Append(tfdiags.Sourceless(
 				tfdiags.Error,
-				"Azure Backend: OpenID Connect credentials",
+				"Azure OpenID Connect Auth: error fetching token",
 				fmt.Sprintf("The following error was encountered while fetching the token: %s", err.Error()),
 			))
 		}
@@ -163,13 +169,13 @@ func (cred *oidcAuth) Validate(config *Config) tfdiags.Diagnostics {
 	if _, err := consolidateToken(config.OIDCAuthConfig); err != nil {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: OpenID Connect credentials",
+			"Azure OpenID Connect Auth: error in token configuration",
 			fmt.Sprintf("The following error was encountered: %s", err.Error()),
 		))
 	}
 	return diags
 }
 
-func (cred *oidcAuth) AugmentConfig(config *Config) error {
+func (cred *oidcAuth) AugmentConfig(_ context.Context, config *Config) error {
 	return checkNamesForAccessKeyCredentials(config.StorageAddresses)
 }

@@ -25,6 +25,8 @@ type ClientCertificateAuthConfig struct {
 
 type clientCertAuth struct{}
 
+var _ AuthMethod = &clientCertAuth{}
+
 func (cred *clientCertAuth) Name() string {
 	return "Client Certificate Auth"
 }
@@ -42,7 +44,7 @@ func (cred *clientCertAuth) Construct(ctx context.Context, config *Config) (azco
 
 	return azidentity.NewClientCertificateCredential(
 		config.StorageAddresses.TenantID,
-		config.ClientBasicAuthConfig.ClientID,
+		config.ClientSecretCredentialAuthConfig.ClientID,
 		[]*x509.Certificate{certificate},
 		privateKey,
 		&azidentity.ClientCertificateCredentialOptions{
@@ -51,26 +53,26 @@ func (cred *clientCertAuth) Construct(ctx context.Context, config *Config) (azco
 	)
 }
 
-func (cred *clientCertAuth) Validate(config *Config) tfdiags.Diagnostics {
+func (cred *clientCertAuth) Validate(_ context.Context, config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
 	if config.StorageAddresses.TenantID == "" {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Client Certificate credentials",
+			"Azure Client Certificate Auth: missing Tenant ID",
 			"Tenant ID is required",
 		))
 	}
-	if config.ClientBasicAuthConfig.ClientID == "" {
+	if config.ClientSecretCredentialAuthConfig.ClientID == "" {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Client Certificate credentials",
+			"Azure Client Certificate Auth: missing Client ID",
 			"Client ID is required",
 		))
 	}
 	if config.ClientCertificateAuthConfig.ClientCertificatePath == "" {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Client Certificate credentials",
+			"Azure Client Certificate Auth: missing certificate path",
 			"The path to the client certificate is required",
 		))
 	} else {
@@ -81,7 +83,7 @@ func (cred *clientCertAuth) Validate(config *Config) tfdiags.Diagnostics {
 		if err != nil {
 			diags = diags.Append(tfdiags.Sourceless(
 				tfdiags.Error,
-				"Azure Backend: Client Certificate credentials",
+				"Azure Client Certificate Auth: certificate credential error",
 				fmt.Sprintf("The following error was encountered processing the certificate credentials: %s", err.Error()),
 			))
 		}
@@ -89,7 +91,7 @@ func (cred *clientCertAuth) Validate(config *Config) tfdiags.Diagnostics {
 	return diags
 }
 
-func (cred *clientCertAuth) AugmentConfig(config *Config) error {
+func (cred *clientCertAuth) AugmentConfig(_ context.Context, config *Config) error {
 	return checkNamesForAccessKeyCredentials(config.StorageAddresses)
 }
 

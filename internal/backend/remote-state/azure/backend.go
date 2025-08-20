@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"time"
 
@@ -46,19 +45,19 @@ func New(enc encryption.StateEncryption) backend.Backend {
 			},
 
 			"metadata_host": {
-				Type:        schema.TypeString,
-				Required:    true,
-				DefaultFunc: schema.EnvDefaultFunc("ARM_METADATA_HOST", ""),
-				Description: "The Metadata URL which will be used to obtain the Cloud Environment.",
-				// ConflictsWith: []string{"environment"},
+				Type:          schema.TypeString,
+				Optional:      true,
+				DefaultFunc:   schema.EnvDefaultFunc("ARM_METADATA_HOST", nil),
+				Description:   "The Metadata URL which will be used to obtain the Cloud Environment.",
+				ConflictsWith: []string{"environment"},
 			},
 
 			"environment": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Description: "The Azure cloud environment.",
-				DefaultFunc: schema.EnvDefaultFunc("ARM_ENVIRONMENT", "public"),
-				// ConflictsWith: []string{"metadata_host"},
+				Type:          schema.TypeString,
+				Optional:      true,
+				Description:   "The Azure cloud environment.",
+				DefaultFunc:   schema.EnvDefaultFunc("ARM_ENVIRONMENT", nil),
+				ConflictsWith: []string{"metadata_host"},
 			},
 
 			"access_key": {
@@ -163,7 +162,7 @@ func New(enc encryption.StateEncryption) backend.Backend {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "The Managed Service Identity Endpoint.",
-				Deprecated:  "This variable is deprecated as of 2021. Using it will not affect MSI authentication.",
+				Deprecated:  "This configuration is now managed in a dependent library, not directly by OpenTofu. Please use the `MSI_ENDPOINT` environment variable to set the Managed Service Identity endpoint.",
 			},
 
 			// OIDC auth specific fields
@@ -209,7 +208,7 @@ func New(enc encryption.StateEncryption) backend.Backend {
 			"use_cli": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Description: "Set to true if you want to use the Azure CLI to authenticate to Azure. Usually only set for tests. Defaults to true.",
+				Description: "Set to true if you want to use the Azure CLI to authenticate to Azure. Defaults to true.",
 				DefaultFunc: schema.EnvDefaultFunc("ARM_USE_CLI", true),
 			},
 		},
@@ -226,10 +225,13 @@ type Backend struct {
 
 	// The fields below are set from configure
 	containerClient *container.Client
-	containerName   string // this is primarily here for testing
-	keyName         string
-	snapshot        bool
-	timeout         time.Duration
+	// containerName is set here so that, in a unit test, we can
+	// check that the container name is propagated correctly
+	// from the configuration
+	containerName string
+	keyName       string
+	snapshot      bool
+	timeout       time.Duration
 }
 
 func (b *Backend) configure(ctx context.Context) error {
@@ -251,11 +253,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	environment := data.Get("environment").(string)
 	metadataHost := data.Get("metadata_host").(string)
 
-	if environment != "public" || metadataHost != "" {
-		log.Printf("[WARNING] environment and metadata_host have experimental implementations. Please submit an issue if you need further support.")
-	}
-
-	cloudConfig, err := auth.CloudConfigFromAddresses(
+	cloudConfig, storageSuffix, err := auth.CloudConfigFromAddresses(
 		ctx,
 		environment,
 		metadataHost,
@@ -269,7 +267,7 @@ func (b *Backend) configure(ctx context.Context) error {
 		AzureCLIAuthConfig: auth.AzureCLIAuthConfig{
 			CLIAuthEnabled: data.Get("use_cli").(bool),
 		},
-		ClientBasicAuthConfig: auth.ClientBasicAuthConfig{
+		ClientSecretCredentialAuthConfig: auth.ClientSecretCredentialAuthConfig{
 			ClientID:     data.Get("client_id").(string),
 			ClientSecret: data.Get("client_secret").(string),
 		},
@@ -291,6 +289,7 @@ func (b *Backend) configure(ctx context.Context) error {
 			ResourceGroup:    data.Get("resource_group_name").(string),
 			StorageAccount:   data.Get("storage_account_name").(string),
 			StorageContainer: b.containerName,
+			StorageSuffix:    storageSuffix,
 			SubscriptionID:   data.Get("subscription_id").(string),
 			TenantID:         data.Get("tenant_id").(string),
 		},
@@ -299,12 +298,16 @@ func (b *Backend) configure(ctx context.Context) error {
 	// MUST check storage account name and container name before trying to create a client.
 	// We are going to be constructing URLs from these names, they should be restricted before we call those functions
 	accountPattern := regexp.MustCompile(`[0-9a-z]{3,24}`)
-	containerPattern := regexp.MustCompile(`[0-9a-z\-]{3,63}`)
+	containerPattern := regexp.MustCompile(`[0-9a-z][0-9a-z\-]{1,61}[0-9a-z]`)
+	hyphenPattern := regexp.MustCompile(`\-\-`)
 	if !accountPattern.Match([]byte(config.StorageAccount)) {
-		return errors.New("invalid storage account name: Azure requires a storage account name consists of 3-24 lowercase characters and numbers only")
+		return errors.New("invalid storage account name: Azure requires a storage account name consists of 3-24 lowercase characters and numbers only. See documentation here: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage")
 	}
 	if !containerPattern.Match([]byte(config.StorageContainer)) {
-		return errors.New("invalid storage container name: Azure requires a storage container name consists of 3-63 lowercase characters and numbers only, with optional \"-\" separators")
+		return errors.New("invalid storage container name: Azure requires a storage container name consists of 3-63 lowercase characters, numbers, and hyphens only. It cannot start or end with a hyphen. See documentation here: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage")
+	}
+	if hyphenPattern.Match([]byte(config.StorageContainer)) {
+		return errors.New("invalid storage container name: Hyphens in a storage container name must be nonconsecutive. See documentation here: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules#microsoftstorage")
 	}
 
 	// Check for nonempty Storage Account Shared Access Key
@@ -334,7 +337,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	// Shared Access Key and SAS Token are both empty
 
 	// Get auth credentials
-	authMethod, err := auth.GetAuthMethod(config)
+	authMethod, err := auth.GetAuthMethod(ctx, config)
 	if err != nil {
 		return err
 	}
@@ -362,7 +365,7 @@ func (b *Backend) configure(ctx context.Context) error {
 	}
 
 	// We also call on the auth method to augment the configuration, to ensure resource group and subscription ID are present
-	err = authMethod.AugmentConfig(config)
+	err = authMethod.AugmentConfig(ctx, config)
 	if err != nil {
 		return err
 	}

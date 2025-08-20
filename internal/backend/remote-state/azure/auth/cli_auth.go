@@ -6,12 +6,11 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os/exec"
-	"runtime"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -24,6 +23,8 @@ type AzureCLIAuthConfig struct {
 
 type azureCLICredentialAuth struct{}
 
+var _ AuthMethod = &azureCLICredentialAuth{}
+
 func (cred *azureCLICredentialAuth) Name() string {
 	return "Azure CLI Auth"
 }
@@ -35,12 +36,13 @@ func (cred *azureCLICredentialAuth) Construct(_ context.Context, config *Config)
 		TenantID:     config.StorageAddresses.TenantID,
 	})
 }
-func (cred *azureCLICredentialAuth) Validate(config *Config) tfdiags.Diagnostics {
+
+func (cred *azureCLICredentialAuth) Validate(ctx context.Context, config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
 	if !config.CLIAuthEnabled {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Command Line credentials",
+			"Azure Command Line Auth: use_cli set to false",
 			"Use of command-line auth (az) has been prevented by setting use_cli to false.",
 		))
 		return diags
@@ -49,26 +51,26 @@ func (cred *azureCLICredentialAuth) Validate(config *Config) tfdiags.Diagnostics
 	if err != nil {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Command Line credentials",
+			"Azure Command Line Auth: az not found in PATH",
 			"Error looking for command az in your PATH. Make sure the Azure Command Line tool is installed and executable.",
 		))
 		return diags
 	}
 	// Make sure the user is logged in by attempting to get the subscription
-	_, err = getCurrentSubscriptionInfo()
+	_, err = getCurrentSubscriptionInfo(ctx)
 	if err != nil {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Command Line credentials",
-			"Error using the az command. Make sure you are logged in.",
+			"Azure Command Line Auth: az command error",
+			fmt.Sprintf("Error using the az command: %s", err.Error()),
 		))
 	}
 	return diags
 }
 
-func (cred *azureCLICredentialAuth) AugmentConfig(config *Config) (err error) {
+func (cred *azureCLICredentialAuth) AugmentConfig(ctx context.Context, config *Config) (err error) {
 	if config.StorageAddresses.SubscriptionID == "" {
-		config.StorageAddresses.SubscriptionID, err = getCliAzureSubscriptionID()
+		config.StorageAddresses.SubscriptionID, err = getCliAzureSubscriptionID(ctx)
 		if err != nil {
 			return err
 		}
@@ -84,8 +86,8 @@ type Subscription struct {
 
 // getCliAzureSubscriptionID obtains the subscription ID currently active in the
 // Azure profile. This assumes the user has the Azure CLI installed on their machine.
-func getCliAzureSubscriptionID() (string, error) {
-	rawSubscription, err := getCurrentSubscriptionInfo()
+func getCliAzureSubscriptionID(ctx context.Context) (string, error) {
+	rawSubscription, err := getCurrentSubscriptionInfo(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -100,23 +102,15 @@ func getCliAzureSubscriptionID() (string, error) {
 }
 
 // getCurrentSubscriptionInfo is adapted from azure-sdk-for-go's CLI token retrieval
-func getCurrentSubscriptionInfo() ([]byte, error) {
-	commandLine := "az account show -o json"
-	var cliCmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		cliCmd = exec.Command("cmd.exe", "/c", commandLine)
-	} else {
-		cliCmd = exec.Command("/bin/sh", "-c", commandLine)
-	}
+func getCurrentSubscriptionInfo(ctx context.Context) ([]byte, error) {
+	cliCmd := exec.CommandContext(ctx, "az", "account", "show", "-o", "json")
+	var stderr bytes.Buffer
+	cliCmd.Stderr = &stderr
 
 	stdout, err := cliCmd.Output()
-	if errors.Is(err, exec.ErrWaitDelay) && len(stdout) > 0 {
-		// The child process wrote to stdout and exited without closing it.
-		// Swallow this error and return stdout because it may contain a token.
-		return stdout, nil
-	}
 	if err != nil {
-		return nil, err
+		msg := stderr.String()
+		return nil, fmt.Errorf("error getting subscription info: error: %w\nmore information: %s", err, msg)
 	}
 
 	return stdout, nil

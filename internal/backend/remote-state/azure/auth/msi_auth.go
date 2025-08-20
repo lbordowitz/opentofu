@@ -20,6 +20,8 @@ type MSIAuthConfig struct {
 
 type managedIdentityAuth struct{}
 
+var _ AuthMethod = &managedIdentityAuth{}
+
 func (cred *managedIdentityAuth) Name() string {
 	return "Managed Service Identity Auth"
 }
@@ -34,18 +36,18 @@ func (cred *managedIdentityAuth) Construct(ctx context.Context, config *Config) 
 	)
 }
 
-func (cred *managedIdentityAuth) Validate(config *Config) tfdiags.Diagnostics {
+func (cred *managedIdentityAuth) Validate(_ context.Context, config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
 	if !config.MSIAuthConfig.UseMsi {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Managed Service Identity credentials",
+			"Azure Managed Service Identity Auth: use_msi set to false",
 			"The Managed Service Identity (MSI) needs to have \"use_msi\" (or ARM_USE_MSI) set to true in order to be used.",
 		))
 	}
 	return diags
 }
 
-func (cred *managedIdentityAuth) AugmentConfig(config *Config) error {
+func (cred *managedIdentityAuth) AugmentConfig(_ context.Context, config *Config) error {
 	return checkNamesForAccessKeyCredentials(config.StorageAddresses)
 }

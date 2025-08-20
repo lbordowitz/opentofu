@@ -287,8 +287,8 @@ func (c *RemoteClient) getBlobProperties(ctx context.Context) (blob.GetPropertie
 }
 
 // fixMetadata ensures the Metadata property of the response is set to a non-nil map.
-// It also lower-cases all existing metadata headers to keep it compatible with the Giovanni client
-// which was used in the previous version of azurerm.
+// It also lower-cases all existing metadata headers to keep it backwards-compatible with the metadata stored by the Giovanni client
+// which was used in the previous version of the azurerm backend.
 func fixMetadata(metadata map[string]*string) map[string]*string {
 	output := make(map[string]*string)
 	if metadata == nil {

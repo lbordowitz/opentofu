@@ -14,56 +14,58 @@ import (
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
-type ClientBasicAuthConfig struct {
+type ClientSecretCredentialAuthConfig struct {
 	ClientID     string
 	ClientSecret string
 }
 
-type clientBasicAuth struct{}
+type clientSecretCredentialAuth struct{}
 
-func (cred *clientBasicAuth) Name() string {
+var _ AuthMethod = &clientSecretCredentialAuth{}
+
+func (cred *clientSecretCredentialAuth) Name() string {
 	return "Client Secret Auth"
 }
 
-func (cred *clientBasicAuth) Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
+func (cred *clientSecretCredentialAuth) Construct(ctx context.Context, config *Config) (azcore.TokenCredential, error) {
 	client := httpclient.New(ctx)
 
 	return azidentity.NewClientSecretCredential(
 		config.StorageAddresses.TenantID,
-		config.ClientBasicAuthConfig.ClientID,
-		config.ClientBasicAuthConfig.ClientSecret,
+		config.ClientID,
+		config.ClientSecret,
 		&azidentity.ClientSecretCredentialOptions{
 			ClientOptions: clientOptions(client, config.CloudConfig),
 		},
 	)
 }
 
-func (cred *clientBasicAuth) Validate(config *Config) tfdiags.Diagnostics {
+func (cred *clientSecretCredentialAuth) Validate(_ context.Context, config *Config) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
 	if config.StorageAddresses.TenantID == "" {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Client Secret credentials",
+			"Azure Client Secret Auth: missing Tenant ID",
 			"Tenant ID is required",
 		))
 	}
-	if config.ClientBasicAuthConfig.ClientID == "" {
+	if config.ClientID == "" {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Client Secret credentials",
+			"Azure Client Secret Auth: missing Client ID",
 			"Client ID is required",
 		))
 	}
-	if config.ClientBasicAuthConfig.ClientSecret == "" {
+	if config.ClientSecret == "" {
 		diags = diags.Append(tfdiags.Sourceless(
 			tfdiags.Error,
-			"Azure Backend: Client Secret credentials",
+			"Azure Client Secret Auth: missing Client Secret",
 			"Client Secret is required",
 		))
 	}
 	return diags
 }
 
-func (cred *clientBasicAuth) AugmentConfig(config *Config) error {
+func (cred *clientSecretCredentialAuth) AugmentConfig(_ context.Context, config *Config) error {
 	return checkNamesForAccessKeyCredentials(config.StorageAddresses)
 }

@@ -163,7 +163,7 @@ func TestAccBackendAccessKeyBasic(t *testing.T) {
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
 
-	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	authMethod, err := auth.GetAuthMethod(t.Context(), emptyAuthConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestAccBackendSASToken(t *testing.T) {
 	rs := acctest.RandString(4)
 	res := testResourceNames(rs, "testState")
 
-	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	authMethod, err := auth.GetAuthMethod(t.Context(), emptyAuthConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ Please set TF_AZURE_TEST_CLIENT_ID and TF_AZURE_TEST_SECRET, either manually or 
 		t.Fatal(errors.New("A tenant ID must be provided through ARM_TENANT_ID in order to run this test."))
 	}
 
-	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	authMethod, err := auth.GetAuthMethod(t.Context(), emptyAuthConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func TestAccBackendServicePrincipalClientCertificate(t *testing.T) {
 	}
 	cert_file.Close()
 
-	authMethod, err := auth.GetAuthMethod(emptyAuthConfig())
+	authMethod, err := auth.GetAuthMethod(t.Context(), emptyAuthConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -401,5 +401,5 @@ func TestAccBackendManagedServiceIdentity(t *testing.T) {
 	backend.TestBackendStates(t, b)
 
 	// Manually delete all blobs in the container
-	deleteBlobs()
+	deleteBlobsInMSI(t, storageAccountName, resourceGroupName, containerName)
 }

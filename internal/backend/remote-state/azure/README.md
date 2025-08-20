@@ -6,6 +6,8 @@ The files `backend_test.go` and `client_test.go` contain various unit tests and 
 
 You should be able to run unit tests without any further configuration, and acceptance tests are skipped by default.
 
+Note: All tests assume you are running on Azure Public Cloud. These tests were not made to work in special environments (like Azure China, Azure Government, or Azure Stack) and will fail if you try to run them there.
+
 ## Running Acceptance Tests
 
 You will need to set the following environment variables in order to run the acceptance tests:
@@ -74,7 +76,7 @@ You will then go to the Azure Portal UI and manually upload the public `client.c
 
 We strongly recommend using the workspace in the `meta-test` folder to set up the VM and associated authorizations.
 
-Within this directory, compile all the tests:
+Within the same directory as this README, compile all the tests:
 
 ```bash
 $ GOOS=linux GOARCH=amd64 go test -c .

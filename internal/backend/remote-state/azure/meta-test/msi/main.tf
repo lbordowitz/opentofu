@@ -102,6 +102,12 @@ resource "azurerm_role_assignment" "example" {
   principal_id         = azurerm_user_assigned_identity.example.principal_id
 }
 
+resource "azurerm_role_assignment" "blob_contributor" {
+  scope                = azurerm_storage_container.test_container.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.example.principal_id
+}
+
 resource "azurerm_linux_virtual_machine" "example" {
   name                = "msi-test-machine"
   resource_group_name = azurerm_resource_group.storage_test.name
