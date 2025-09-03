@@ -21,15 +21,30 @@ on the host operating system:
   of this directory depends on your Windows version and system configuration;
   use `$env:APPDATA` in PowerShell to find its location on your system.
   The `terraform.rc` is supported for backward-compatibility purposes.
-  If both `terraform.rc` and `tofu.rc` files exists, the later would take precedence.
-* On all other systems, the file must be named `.tofurc` (note
-  the leading period) and placed directly in the home directory
-  of the relevant user or be named `tofurc` and placed in a valid
-  [XDG Base Directory](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)
-  config directory such as `$XDG_CONFIG_HOME/opentofu`.
-  The `.terraformrc` is supported for backward-compatibility purposes.
-  If both `.terraformrc` and `.tofurc` files exists, the latter would take precedence.
-  When using an XDG config directory `.terraformrc` and `terraformrc` are ignored.
+  If both `terraform.rc` and `tofu.rc` files exists, the later would take 
+  precedence. <TODO> Check that this is really how Windows acts, as we are changing 
+  the rules a bit to use userdirs.ForApp instead of the custom windows code
+* On Unix systems, OpenTofu searches for configuration files in the following
+  places and then merges them together. Higher-precedence configurations overwrite 
+  the settings of lower-precedence configurations. Configuration files are merged 
+  in the following precedence order:
+  1. $XDG_CONFIG_HOME/opentofu/*.tfrc and *.tfrc.json
+  1. for each $config in $XDG_CONFIG_DIRS, $config/opentofu/*.tfrc and *.tfrc.json, 
+     with the earliest directory listed taking precedence 
+  1. $HOME/.terraform.d for compatibility only
+  1. $XDG_CONFIG_HOME/opentofu/tofurc
+  1. for each $config in $XDG_CONFIG_DIRS, $config/opentofu/tofurc
+  1. $HOME/.tofurc
+  1. $HOME/.terraformrc
+  If `$XDG_CONFIG_HOME` is not set, `$HOME/.config/opentofu` is used. Similarly, if 
+  `$XDG_CONFIG_DIRS` is not set, `/etc/xdg` is used. With `$XDG_CONFIG_DIRS`, 
+  earlier-listed directories take precedence. Note that this mostly follows the 
+  [XDG Base Directory](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html) specification, with some extra directories and files 
+  added for the sake of compatibility.
+* On macOS, OpenTofu searches for configurations files in the following places and merges them together. As with Unix, higher-precedence configurations overwrite the settings of lower-precedence configurations. Configuration files are merged in the following precedence order:
+  1. ~/Library/Application Support/org.opentofu/*.tfrc and *.tfrc.json
+  1. /Library/Application Support/org.opentofu/*.tfrc and *.tfrc.json
+  1. For compatibility reasons, the directories and files in the Unix section, ordered as listed 
 
 On Windows, beware of Windows Explorer's default behavior of hiding filename
 extensions. OpenTofu will not recognize a file named `tofuc.rc.txt` as a
@@ -39,7 +54,9 @@ confirm the filename.
 
 The location of the OpenTofu CLI configuration file can also be specified
 using the `TF_CLI_CONFIG_FILE` [environment variable](environment-variables.mdx).
-Any such file should follow the naming pattern `*.tfrc`.
+Any such file should follow the naming pattern `*.tfrc`. If this environment 
+variable is set, all other configuration files in the aforementioned directories 
+are ignored.
 
 ## Configuration File Syntax
 
