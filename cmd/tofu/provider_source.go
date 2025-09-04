@@ -15,6 +15,7 @@ import (
 
 	"github.com/apparentlymart/go-userdirs/userdirs"
 	"github.com/opentofu/svchost/disco"
+	"github.com/spf13/afero"
 
 	"github.com/opentofu/opentofu/internal/addrs"
 	"github.com/opentofu/opentofu/internal/command/cliconfig"
@@ -152,7 +153,7 @@ func implicitProviderSource(ctx context.Context, services *disco.Disco, original
 	// Check and add the "terraform.d/plugins" directory in the original working directory
 	addLocalDir(filepath.Join(originalWorkingDir, "terraform.d/plugins"))
 
-	cliDataDirs, err := cliconfig.DataDirs()
+	cliDataDirs, err := cliconfig.DataDirs(afero.NewOsFs())
 	if err == nil {
 		for _, cliDataDir := range cliDataDirs {
 			addLocalDir(filepath.Join(cliDataDir, "plugins"))
