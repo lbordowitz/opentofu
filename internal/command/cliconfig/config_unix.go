@@ -24,9 +24,7 @@ func configFile() (string, error) {
 	newConfigFile := filepath.Join(dir, ".tofurc")
 	legacyConfigFile := filepath.Join(dir, ".terraformrc")
 
-	xdgDir := xdgEnvDefault("XDG_CONFIG_HOME", dir, ".config")
-
-	if !pathExists(legacyConfigFile) && !pathExists(newConfigFile) {
+	if xdgDir := os.Getenv("XDG_CONFIG_HOME"); xdgDir != "" && !pathExists(legacyConfigFile) && !pathExists(newConfigFile) {
 		// a fresh install should not use terraform naming
 		return filepath.Join(xdgDir, "opentofu", "tofurc"), nil
 	}
@@ -40,10 +38,8 @@ func configDir() (string, error) {
 		return "", err
 	}
 
-	// TODO: merge configs in directories? Prefer XDG over $HOME/.terraform.d?
 	configDir := filepath.Join(dir, ".terraform.d")
-	xdgDir := xdgEnvDefault("XDG_CONFIG_HOME", dir, ".config")
-	if !pathExists(configDir) && xdgDir != "" {
+	if xdgDir := os.Getenv("XDG_CONFIG_HOME"); !pathExists(configDir) && xdgDir != "" {
 		configDir = filepath.Join(xdgDir, "opentofu")
 	}
 
@@ -57,17 +53,11 @@ func dataDirs() ([]string, error) {
 	}
 
 	dirs := []string{filepath.Join(dir, ".terraform.d")}
-	xdgDir := xdgEnvDefault("XDG_DATA_HOME", dir, ".local", "share")
-	dirs = append(dirs, filepath.Join(xdgDir, "opentofu"))
+	if xdgDir := os.Getenv("XDG_DATA_HOME"); xdgDir != "" {
+		dirs = append(dirs, filepath.Join(xdgDir, "opentofu"))
+	}
 
 	return dirs, nil
-}
-
-func xdgEnvDefault(key string, defaultDir ...string) string {
-	if envVar, ok := os.LookupEnv(key); ok {
-		return envVar
-	}
-	return filepath.Join(defaultDir...)
 }
 
 func homeDir() (string, error) {
