@@ -25,6 +25,7 @@ import (
 
 	"github.com/hashicorp/hcl"
 	"github.com/opentofu/svchost"
+	"github.com/spf13/afero"
 
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
@@ -122,14 +123,14 @@ func DataDirs() ([]string, error) {
 // LoadConfig reads the CLI configuration from the various filesystem locations
 // and from the environment, returning a merged configuration along with any
 // diagnostics (errors and warnings) encountered along the way.
-func LoadConfig(_ context.Context) (*Config, tfdiags.Diagnostics) {
+func LoadConfig(_ context.Context, fileSystem afero.Fs) (*Config, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 	configVal := BuiltinConfig // copy
 	config := &configVal
 
-	if mainFilename, mainFileDiags := cliConfigFile(); len(mainFileDiags) == 0 {
-		if _, err := os.Stat(mainFilename); err == nil {
-			mainConfig, mainDiags := loadConfigFile(mainFilename)
+	if mainFilename, mainFileDiags := cliConfigFile(fileSystem); len(mainFileDiags) == 0 {
+		if _, err := fileSystem.Stat(mainFilename); err == nil {
+			mainConfig, mainDiags := loadConfigFile(fileSystem, mainFilename)
 			diags = diags.Append(mainDiags)
 			// NOTE: The order of arguments to merge below seems confusing
 			// given that below we tend to do it the other way around, but
@@ -153,8 +154,8 @@ func LoadConfig(_ context.Context) (*Config, tfdiags.Diagnostics) {
 	// in automation with a locally-customized configuration.
 	if cliConfigFileOverride() == "" {
 		if configDir, err := ConfigDir(); err == nil {
-			if info, err := os.Stat(configDir); err == nil && info.IsDir() {
-				dirConfig, dirDiags := loadConfigDir(configDir)
+			if info, err := fileSystem.Stat(configDir); err == nil && info.IsDir() {
+				dirConfig, dirDiags := loadConfigDir(fileSystem, configDir)
 				diags = diags.Append(dirDiags)
 				config = config.Merge(dirConfig)
 			}
@@ -168,20 +169,20 @@ func LoadConfig(_ context.Context) (*Config, tfdiags.Diagnostics) {
 		config = envConfig.Merge(config)
 	}
 
-	diags = diags.Append(config.Validate())
+	diags = diags.Append(config.Validate(fileSystem))
 
 	return config, diags
 }
 
 // loadConfigFile loads the CLI configuration from ".tofurc" files.
-func loadConfigFile(path string) (*Config, tfdiags.Diagnostics) {
+func loadConfigFile(fileSystem afero.Fs, path string) (*Config, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 	result := &Config{}
 
 	log.Printf("Loading CLI configuration from %s", path)
 
 	// Read the HCL file and prepare for parsing
-	d, err := os.ReadFile(path)
+	d, err := afero.ReadFile(fileSystem, path)
 	if err != nil {
 		diags = diags.Append(fmt.Errorf("Error reading %s: %w", path, err))
 		return result, diags
@@ -224,11 +225,11 @@ func loadConfigFile(path string) (*Config, tfdiags.Diagnostics) {
 	return result, diags
 }
 
-func loadConfigDir(path string) (*Config, tfdiags.Diagnostics) {
+func loadConfigDir(fileSystem afero.Fs, path string) (*Config, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 	result := &Config{}
 
-	entries, err := os.ReadDir(path)
+	entries, err := afero.ReadDir(fileSystem, path)
 	if err != nil {
 		diags = diags.Append(fmt.Errorf("Error reading %s: %w", path, err))
 		return result, diags
@@ -245,7 +246,7 @@ func loadConfigDir(path string) (*Config, tfdiags.Diagnostics) {
 		}
 
 		filePath := filepath.Join(path, name)
-		fileConfig, fileDiags := loadConfigFile(filePath)
+		fileConfig, fileDiags := loadConfigFile(fileSystem, filePath)
 		diags = diags.Append(fileDiags)
 		result = result.Merge(fileConfig)
 	}
@@ -312,7 +313,7 @@ func makeEnvMap(environ []string) map[string]string {
 // On success, the returned diagnostics will return false from the HasErrors
 // method. A non-nil diagnostics is not necessarily an error, since it may
 // contain just warnings.
-func (c *Config) Validate() tfdiags.Diagnostics {
+func (c *Config) Validate(fileSystem afero.Fs) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
 
 	if c == nil {
@@ -379,7 +380,7 @@ func (c *Config) Validate() tfdiags.Diagnostics {
 	}
 
 	if c.PluginCacheDir != "" {
-		_, err := os.Stat(c.PluginCacheDir)
+		_, err := fileSystem.Stat(c.PluginCacheDir)
 		if err != nil {
 			diags = diags.Append(
 				fmt.Errorf("The specified plugin cache dir %s cannot be opened: %w", c.PluginCacheDir, err),
@@ -458,7 +459,7 @@ func (c *Config) Merge(c2 *Config) *Config {
 	return &result
 }
 
-func cliConfigFile() (string, tfdiags.Diagnostics) {
+func cliConfigFile(fileSystem afero.Fs) (string, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 	mustExist := true
 
@@ -476,7 +477,7 @@ func cliConfigFile() (string, tfdiags.Diagnostics) {
 	}
 
 	log.Printf("[DEBUG] Attempting to open CLI config file: %s", configFilePath)
-	f, err := os.Open(configFilePath)
+	f, err := fileSystem.Open(configFilePath)
 	if err == nil {
 		f.Close()
 		return configFilePath, diags
