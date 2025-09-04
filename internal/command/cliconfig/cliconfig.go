@@ -106,18 +106,18 @@ var BuiltinConfig Config
 // On Unix-like systems this is the ".tofurc" file in the home directory.
 // On Windows, this is the "tofu.rc" file in the application data
 // directory.
-func ConfigFile() (string, error) {
-	return configFile()
+func ConfigFile(fileSystem afero.Fs) (string, error) {
+	return configFile(fileSystem)
 }
 
 // ConfigDir returns the configuration directory for OpenTofu.
-func ConfigDir() (string, error) {
-	return configDir()
+func ConfigDir(fileSystem afero.Fs) (string, error) {
+	return configDir(fileSystem)
 }
 
 // DataDirs returns the data directories for OpenTofu.
-func DataDirs() ([]string, error) {
-	return dataDirs()
+func DataDirs(fileSystem afero.Fs) ([]string, error) {
+	return dataDirs(fileSystem)
 }
 
 // LoadConfig reads the CLI configuration from the various filesystem locations
@@ -153,7 +153,7 @@ func LoadConfig(_ context.Context, fileSystem afero.Fs) (*Config, tfdiags.Diagno
 	// files because we're doing something special, like running OpenTofu
 	// in automation with a locally-customized configuration.
 	if cliConfigFileOverride() == "" {
-		if configDir, err := ConfigDir(); err == nil {
+		if configDir, err := ConfigDir(fileSystem); err == nil {
 			if info, err := fileSystem.Stat(configDir); err == nil && info.IsDir() {
 				dirConfig, dirDiags := loadConfigDir(fileSystem, configDir)
 				diags = diags.Append(dirDiags)
@@ -466,7 +466,7 @@ func cliConfigFile(fileSystem afero.Fs) (string, tfdiags.Diagnostics) {
 	configFilePath := cliConfigFileOverride()
 	if configFilePath == "" {
 		var err error
-		configFilePath, err = ConfigFile()
+		configFilePath, err = ConfigFile(fileSystem)
 		mustExist = false
 
 		if err != nil {

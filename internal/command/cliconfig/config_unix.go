@@ -13,9 +13,11 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+
+	"github.com/spf13/afero"
 )
 
-func configFile() (string, error) {
+func configFile(fileSystem afero.Fs) (string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return "", err
@@ -24,7 +26,7 @@ func configFile() (string, error) {
 	newConfigFile := filepath.Join(dir, ".tofurc")
 	legacyConfigFile := filepath.Join(dir, ".terraformrc")
 
-	if xdgDir := os.Getenv("XDG_CONFIG_HOME"); xdgDir != "" && !pathExists(legacyConfigFile) && !pathExists(newConfigFile) {
+	if xdgDir := os.Getenv("XDG_CONFIG_HOME"); xdgDir != "" && !pathExists(fileSystem, legacyConfigFile) && !pathExists(fileSystem, newConfigFile) {
 		// a fresh install should not use terraform naming
 		return filepath.Join(xdgDir, "opentofu", "tofurc"), nil
 	}
@@ -32,21 +34,21 @@ func configFile() (string, error) {
 	return getNewOrLegacyPath(newConfigFile, legacyConfigFile)
 }
 
-func configDir() (string, error) {
+func configDir(fileSystem afero.Fs) (string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return "", err
 	}
 
 	configDir := filepath.Join(dir, ".terraform.d")
-	if xdgDir := os.Getenv("XDG_CONFIG_HOME"); !pathExists(configDir) && xdgDir != "" {
+	if xdgDir := os.Getenv("XDG_CONFIG_HOME"); !pathExists(fileSystem, configDir) && xdgDir != "" {
 		configDir = filepath.Join(xdgDir, "opentofu")
 	}
 
 	return configDir, nil
 }
 
-func dataDirs() ([]string, error) {
+func dataDirs(fileSystem afero.Fs) ([]string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return nil, err
@@ -84,7 +86,7 @@ func homeDir() (string, error) {
 	return user.HomeDir, nil
 }
 
-func pathExists(path string) bool {
-	_, err := os.Stat(path)
+func pathExists(fileSystem afero.Fs, path string) bool {
+	_, err := fileSystem.Stat(path)
 	return err == nil
 }

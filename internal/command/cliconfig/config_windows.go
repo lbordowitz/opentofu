@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"syscall"
 	"unsafe"
+
+	"github.com/spf13/afero"
 )
 
 var (
@@ -21,7 +23,7 @@ var (
 
 const CSIDL_APPDATA = 26
 
-func configFile() (string, error) {
+func configFile(fileSystem afero.Fs) (string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return "", err
@@ -33,7 +35,7 @@ func configFile() (string, error) {
 	return getNewOrLegacyPath(newConfigFile, legacyConfigFile)
 }
 
-func configDir() (string, error) {
+func configDir(fileSystem afero.Fs) (string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return "", err
