@@ -22,6 +22,7 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/mitchellh/cli"
 	"github.com/mitchellh/colorstring"
+	"github.com/spf13/afero"
 
 	"github.com/opentofu/opentofu/internal/addrs"
 	"github.com/opentofu/opentofu/internal/command/cliconfig"
@@ -160,7 +161,7 @@ func realMain() int {
 	// path in the TERRAFORM_CONFIG_FILE environment variable (though probably
 	// ill-advised) will be resolved relative to the true working directory,
 	// not the overridden one.
-	config, diags := cliconfig.LoadConfig(ctx)
+	config, diags := cliconfig.LoadConfig(ctx, afero.NewOsFs())
 
 	if len(diags) > 0 {
 		// Since we haven't instantiated a command.Meta yet, we need to do
