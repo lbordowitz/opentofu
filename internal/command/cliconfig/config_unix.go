@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 )
 
 func configFile(fileSystem fs.FS) (string, error) {
@@ -47,7 +48,7 @@ func configDir(fileSystem fs.FS) (string, error) {
 	return configDir, nil
 }
 
-func dataDirs(fileSystem fs.FS) ([]string, error) {
+func dataDirs(_ fs.FS) ([]string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return nil, err
@@ -85,7 +86,15 @@ func homeDir() (string, error) {
 	return user.HomeDir, nil
 }
 
+// fsRelativize removes the leading and trailing slash from an absolute file path. The fs.FS filesystem type only works with
+// "relative directories". So, a DirFS based at "/" will take a file path like "home/username/.tofurc" and
+// look in the operating system file system at "/home/username/.tofurc".
+// More details in this documentation: https://pkg.go.dev/io/fs#ValidPath
+func fsRelativize(dir string) string {
+	return filepath.ToSlash(strings.Trim(dir, string(os.PathSeparator)))
+}
+
 func pathExists(fileSystem fs.FS, path string) bool {
-	_, err := fs.Stat(fileSystem, path)
+	_, err := fs.Stat(fileSystem, fsRelativize(path))
 	return err == nil
 }
