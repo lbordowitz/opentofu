@@ -75,11 +75,12 @@ func TestConfigFileConfigDir(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fileSystem := afero.NewMemMapFs()
+			afs := afero.NewMemMapFs()
+			fileSystem := afero.NewIOFS(afs)
 			t.Setenv("HOME", homeDir)
 			t.Setenv("XDG_CONFIG_HOME", test.xdgConfigHome)
 			for _, f := range test.files {
-				createFile(t, fileSystem, f)
+				createFile(t, afs, f)
 			}
 
 			file, err := configFile(fileSystem)
@@ -119,7 +120,9 @@ func TestDataDirs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fileSystem := afero.NewMemMapFs()
+			afs := afero.NewMemMapFs()
+			fileSystem := afero.NewIOFS(afs)
+
 			t.Setenv("HOME", homeDir)
 			t.Setenv("XDG_DATA_HOME", test.xdgDataHome)
 

@@ -22,7 +22,8 @@ import (
 const fixtureDir = "./testdata"
 
 func TestLoadConfig_ignore_providers_provisioners(t *testing.T) {
-	fileSystem := afero.NewOsFs()
+	afs := afero.NewOsFs()
+	fileSystem := afero.NewIOFS(afs)
 	// There used to be providers and provisioners in cli config files
 	// We want to make sure config files load properly despite their
 	// possible presence.
@@ -47,8 +48,9 @@ func TestLoadConfig_ignore_providers_provisioners(t *testing.T) {
 }
 
 func TestLoadConfig_non_existing_file(t *testing.T) {
-	fileSystem := afero.NewMemMapFs()
-	tmpDir := afero.GetTempDir(fileSystem, "")
+	afs := afero.NewMemMapFs()
+	tmpDir := afero.GetTempDir(afs, "")
+	fileSystem := afero.NewIOFS(afs)
 	cliTmpFile := filepath.Join(tmpDir, "dev.tfrc")
 
 	t.Setenv("TF_CLI_CONFIG_FILE", cliTmpFile)
@@ -207,7 +209,8 @@ func TestMakeEnvMap(t *testing.T) {
 }
 
 func TestLoadConfig_hosts(t *testing.T) {
-	fileSystem := afero.NewOsFs()
+	afs := afero.NewOsFs()
+	fileSystem := afero.NewIOFS(afs)
 	got, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "hosts"))
 	if len(diags) != 0 {
 		t.Fatalf("%s", diags.Err())
@@ -229,7 +232,8 @@ func TestLoadConfig_hosts(t *testing.T) {
 }
 
 func TestLoadConfig_credentials(t *testing.T) {
-	fileSystem := afero.NewOsFs()
+	afs := afero.NewOsFs()
+	fileSystem := afero.NewIOFS(afs)
 	got, err := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "credentials"))
 	if err != nil {
 		t.Fatal(err)
@@ -356,7 +360,8 @@ func TestConfigValidate(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			fileSystem := afero.NewMemMapFs()
+			afs := afero.NewMemMapFs()
+			fileSystem := afero.NewIOFS(afs)
 			diags := test.Config.Validate(fileSystem)
 			if len(diags) != test.DiagCount {
 				t.Errorf("wrong number of diagnostics %d; want %d", len(diags), test.DiagCount)
