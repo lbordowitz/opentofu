@@ -93,7 +93,8 @@ func TestLoadConfig_ociDefaultCredentials(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			fileSystem := afero.NewOsFs()
+			afs := afero.NewOsFs()
+			fileSystem := afero.NewIOFS(afs)
 			fixtureFile := filepath.Join("testdata", name)
 			gotConfig, diags := loadConfigFile(fileSystem, fixtureFile)
 			if diags.HasErrors() {
@@ -119,7 +120,8 @@ func TestLoadConfig_ociDefaultCredentials(t *testing.T) {
 	}
 
 	t.Run("oci-default-credentials-duplicate", func(t *testing.T) {
-		fileSystem := afero.NewOsFs()
+		afs := afero.NewOsFs()
+		fileSystem := afero.NewIOFS(afs)
 		// This one is different than all of the others because it
 		// only gets detected as invalid during the validation step,
 		// so that (in the normal case) we can check it only after
@@ -272,7 +274,8 @@ func TestLoadConfig_ociCredentials(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			fileSystem := afero.NewOsFs()
+			afs := afero.NewOsFs()
+			fileSystem := afero.NewIOFS(afs)
 			fixtureFile := filepath.Join("testdata", name)
 			gotConfig, diags := loadConfigFile(fileSystem, fixtureFile)
 			if diags.HasErrors() {
@@ -295,7 +298,8 @@ func TestLoadConfig_ociCredentials(t *testing.T) {
 	}
 
 	t.Run("oci-credentials-duplicate", func(t *testing.T) {
-		fileSystem := afero.NewOsFs()
+		afs := afero.NewOsFs()
+		fileSystem := afero.NewIOFS(afs)
 		// This one is different than all of the others because it
 		// only gets detected as invalid during the validation step,
 		// so that (in the normal case) we can check it only after
@@ -641,7 +645,8 @@ func TestConfigOCICredentialsPolicy(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			fileSystem := afero.NewOsFs()
+			afs := afero.NewOsFs()
+			fileSystem := afero.NewIOFS(afs)
 			var osName string
 			if lastDashIdx := strings.LastIndexByte(name, '-'); lastDashIdx == -1 {
 				t.Fatalf("test name does not include -osname suffix")

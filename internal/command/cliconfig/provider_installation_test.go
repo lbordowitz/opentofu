@@ -21,7 +21,8 @@ import (
 func TestLoadConfig_providerInstallation(t *testing.T) {
 	for _, configFile := range []string{"provider-installation", "provider-installation.json"} {
 		t.Run(configFile, func(t *testing.T) {
-			fileSystem := afero.NewOsFs()
+			afs := afero.NewOsFs()
+			fileSystem := afero.NewIOFS(afs)
 			got, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, configFile))
 			if diags.HasErrors() {
 				t.Errorf("unexpected diagnostics: %s", diags.Err().Error())
@@ -65,7 +66,8 @@ func TestLoadConfig_providerInstallation(t *testing.T) {
 }
 
 func TestLoadConfig_providerInstallationErrors(t *testing.T) {
-	fileSystem := afero.NewOsFs()
+	afs := afero.NewOsFs()
+	fileSystem := afero.NewIOFS(afs)
 	_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-errors"))
 	want := `7 problems:
 
@@ -90,7 +92,8 @@ func TestLoadConfig_providerInstallationErrors(t *testing.T) {
 func TestLoadConfig_providerInstallationOCIMirror(t *testing.T) {
 	for _, configFile := range []string{"provider-installation-oci", "provider-installation-oci.json"} {
 		t.Run(configFile, func(t *testing.T) {
-			fileSystem := afero.NewOsFs()
+			afs := afero.NewOsFs()
+			fileSystem := afero.NewIOFS(afs)
 			gotConfig, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, configFile))
 			if diags.HasErrors() {
 				t.Fatalf("unexpected diagnostics: %s", diags.Err().Error())
@@ -184,7 +187,8 @@ func TestLoadConfig_providerInstallationOCIMirror(t *testing.T) {
 
 func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 	t.Run("missing hostname reference", func(t *testing.T) {
-		fileSystem := afero.NewOsFs()
+		afs := afero.NewOsFs()
+		fileSystem := afero.NewIOFS(afs)
 		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-missinghostname"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
@@ -194,7 +198,8 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 		}
 	})
 	t.Run("missing namespace reference", func(t *testing.T) {
-		fileSystem := afero.NewOsFs()
+		afs := afero.NewOsFs()
+		fileSystem := afero.NewIOFS(afs)
 		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-missingnamespace"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
@@ -204,7 +209,8 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 		}
 	})
 	t.Run("missing type reference", func(t *testing.T) {
-		fileSystem := afero.NewOsFs()
+		afs := afero.NewOsFs()
+		fileSystem := afero.NewIOFS(afs)
 		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-missingtype"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
@@ -214,7 +220,8 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 		}
 	})
 	t.Run("type error in template", func(t *testing.T) {
-		fileSystem := afero.NewOsFs()
+		afs := afero.NewOsFs()
+		fileSystem := afero.NewIOFS(afs)
 		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-typeerror"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
@@ -224,7 +231,8 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 		}
 	})
 	t.Run("value error in template", func(t *testing.T) {
-		fileSystem := afero.NewOsFs()
+		afs := afero.NewOsFs()
+		fileSystem := afero.NewIOFS(afs)
 		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-valueerror"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
@@ -234,7 +242,8 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 		}
 	})
 	t.Run("dynamic error in template", func(t *testing.T) {
-		fileSystem := afero.NewOsFs()
+		afs := afero.NewOsFs()
+		fileSystem := afero.NewIOFS(afs)
 		cfg, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-dynerror"))
 		if diags.HasErrors() {
 			t.Fatalf("unexpected error for configuration load (error should be only during template evaluation)")
@@ -256,7 +265,8 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 		}
 	})
 	t.Run("unmappable characters in provider source address", func(t *testing.T) {
-		fileSystem := afero.NewOsFs()
+		afs := afero.NewOsFs()
+		fileSystem := afero.NewIOFS(afs)
 		// This deals with a particularly-annoying case: OpenTofu provider source addresses
 		// support a wide range of unicode characters with the intent that folks can name
 		// their private providers using the alphabet of their native language, but OCI Distribution

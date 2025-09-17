@@ -10,14 +10,13 @@ package cliconfig
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
-
-	"github.com/spf13/afero"
 )
 
-func configFile(fileSystem afero.Fs) (string, error) {
+func configFile(fileSystem fs.FS) (string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return "", err
@@ -34,7 +33,7 @@ func configFile(fileSystem afero.Fs) (string, error) {
 	return getNewOrLegacyPath(newConfigFile, legacyConfigFile)
 }
 
-func configDir(fileSystem afero.Fs) (string, error) {
+func configDir(fileSystem fs.FS) (string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return "", err
@@ -48,7 +47,7 @@ func configDir(fileSystem afero.Fs) (string, error) {
 	return configDir, nil
 }
 
-func dataDirs(fileSystem afero.Fs) ([]string, error) {
+func dataDirs(fileSystem fs.FS) ([]string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return nil, err
@@ -86,7 +85,7 @@ func homeDir() (string, error) {
 	return user.HomeDir, nil
 }
 
-func pathExists(fileSystem afero.Fs, path string) bool {
-	_, err := fileSystem.Stat(path)
+func pathExists(fileSystem fs.FS, path string) bool {
+	_, err := fs.Stat(fileSystem, path)
 	return err == nil
 }

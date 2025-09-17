@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/opentofu/svchost"
 	"github.com/opentofu/svchost/svcauth"
-	"github.com/spf13/afero"
 	"github.com/zclconf/go-cty/cty"
 	ctyjson "github.com/zclconf/go-cty/cty/json"
 
@@ -30,7 +30,7 @@ import (
 // credentialsConfigFile returns the path for the special configuration file
 // that the credentials source will use when asked to save or forget credentials
 // and when a "credentials helper" program is not active.
-func credentialsConfigFile(fileSystem afero.Fs) (string, error) {
+func credentialsConfigFile(fileSystem fs.FS) (string, error) {
 	configDir, err := ConfigDir(fileSystem)
 	if err != nil {
 		return "", err
@@ -41,7 +41,7 @@ func credentialsConfigFile(fileSystem afero.Fs) (string, error) {
 // CredentialsSource creates and returns a service credentials source whose
 // behavior depends on which "credentials" and "credentials_helper" blocks,
 // if any, are present in the receiving config.
-func (c *Config) CredentialsSource(fileSystem afero.Fs, helperPlugins pluginDiscovery.PluginMetaSet) (*CredentialsSource, error) {
+func (c *Config) CredentialsSource(fileSystem fs.FS, helperPlugins pluginDiscovery.PluginMetaSet) (*CredentialsSource, error) {
 	credentialsFilePath, err := credentialsConfigFile(fileSystem)
 	if err != nil {
 		// If we managed to load a Config object at all then we would already
