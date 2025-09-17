@@ -128,7 +128,7 @@ func LoadConfig(_ context.Context, fileSystem fs.FS) (*Config, tfdiags.Diagnosti
 	config := &configVal
 
 	if mainFilename, mainFileDiags := cliConfigFile(fileSystem); len(mainFileDiags) == 0 {
-		if _, err := fs.Stat(fileSystem, mainFilename); err == nil {
+		if _, err := fs.Stat(fileSystem, fsRelativize(mainFilename)); err == nil {
 			mainConfig, mainDiags := loadConfigFile(fileSystem, mainFilename)
 			diags = diags.Append(mainDiags)
 			// NOTE: The order of arguments to merge below seems confusing
@@ -153,7 +153,7 @@ func LoadConfig(_ context.Context, fileSystem fs.FS) (*Config, tfdiags.Diagnosti
 	// in automation with a locally-customized configuration.
 	if cliConfigFileOverride() == "" {
 		if configDir, err := ConfigDir(fileSystem); err == nil {
-			if info, err := fs.Stat(fileSystem, configDir); err == nil && info.IsDir() {
+			if info, err := fs.Stat(fileSystem, fsRelativize(configDir)); err == nil && info.IsDir() {
 				dirConfig, dirDiags := loadConfigDir(fileSystem, configDir)
 				diags = diags.Append(dirDiags)
 				config = config.Merge(dirConfig)
@@ -181,7 +181,7 @@ func loadConfigFile(fileSystem fs.FS, path string) (*Config, tfdiags.Diagnostics
 	log.Printf("Loading CLI configuration from %s", path)
 
 	// Read the HCL file and prepare for parsing
-	d, err := fs.ReadFile(fileSystem, path)
+	d, err := fs.ReadFile(fileSystem, fsRelativize(path))
 	if err != nil {
 		diags = diags.Append(fmt.Errorf("Error reading %s: %w", path, err))
 		return result, diags
@@ -228,7 +228,7 @@ func loadConfigDir(fileSystem fs.FS, path string) (*Config, tfdiags.Diagnostics)
 	var diags tfdiags.Diagnostics
 	result := &Config{}
 
-	entries, err := fs.ReadDir(fileSystem, path)
+	entries, err := fs.ReadDir(fileSystem, fsRelativize(path))
 	if err != nil {
 		diags = diags.Append(fmt.Errorf("Error reading %s: %w", path, err))
 		return result, diags
@@ -379,7 +379,7 @@ func (c *Config) Validate(fileSystem fs.FS) tfdiags.Diagnostics {
 	}
 
 	if c.PluginCacheDir != "" {
-		_, err := fs.Stat(fileSystem, c.PluginCacheDir)
+		_, err := fs.Stat(fileSystem, fsRelativize(c.PluginCacheDir))
 		if err != nil {
 			diags = diags.Append(
 				fmt.Errorf("The specified plugin cache dir %s cannot be opened: %w", c.PluginCacheDir, err),
@@ -476,7 +476,7 @@ func cliConfigFile(fileSystem fs.FS) (string, tfdiags.Diagnostics) {
 	}
 
 	log.Printf("[DEBUG] Attempting to open CLI config file: %s", configFilePath)
-	f, err := fileSystem.Open(configFilePath)
+	f, err := fileSystem.Open(fsRelativize(configFilePath))
 	if err == nil {
 		f.Close()
 		return configFilePath, diags
