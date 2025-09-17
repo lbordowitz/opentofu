@@ -25,7 +25,6 @@ import (
 
 	"github.com/hashicorp/hcl"
 	"github.com/opentofu/svchost"
-	"github.com/spf13/afero"
 
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
@@ -106,30 +105,30 @@ var BuiltinConfig Config
 // On Unix-like systems this is the ".tofurc" file in the home directory.
 // On Windows, this is the "tofu.rc" file in the application data
 // directory.
-func ConfigFile(fileSystem afero.Fs) (string, error) {
+func ConfigFile(fileSystem fs.FS) (string, error) {
 	return configFile(fileSystem)
 }
 
 // ConfigDir returns the configuration directory for OpenTofu.
-func ConfigDir(fileSystem afero.Fs) (string, error) {
+func ConfigDir(fileSystem fs.FS) (string, error) {
 	return configDir(fileSystem)
 }
 
 // DataDirs returns the data directories for OpenTofu.
-func DataDirs(fileSystem afero.Fs) ([]string, error) {
+func DataDirs(fileSystem fs.FS) ([]string, error) {
 	return dataDirs(fileSystem)
 }
 
 // LoadConfig reads the CLI configuration from the various filesystem locations
 // and from the environment, returning a merged configuration along with any
 // diagnostics (errors and warnings) encountered along the way.
-func LoadConfig(_ context.Context, fileSystem afero.Fs) (*Config, tfdiags.Diagnostics) {
+func LoadConfig(_ context.Context, fileSystem fs.FS) (*Config, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 	configVal := BuiltinConfig // copy
 	config := &configVal
 
 	if mainFilename, mainFileDiags := cliConfigFile(fileSystem); len(mainFileDiags) == 0 {
-		if _, err := fileSystem.Stat(mainFilename); err == nil {
+		if _, err := fs.Stat(fileSystem, mainFilename); err == nil {
 			mainConfig, mainDiags := loadConfigFile(fileSystem, mainFilename)
 			diags = diags.Append(mainDiags)
 			// NOTE: The order of arguments to merge below seems confusing
@@ -154,7 +153,7 @@ func LoadConfig(_ context.Context, fileSystem afero.Fs) (*Config, tfdiags.Diagno
 	// in automation with a locally-customized configuration.
 	if cliConfigFileOverride() == "" {
 		if configDir, err := ConfigDir(fileSystem); err == nil {
-			if info, err := fileSystem.Stat(configDir); err == nil && info.IsDir() {
+			if info, err := fs.Stat(fileSystem, configDir); err == nil && info.IsDir() {
 				dirConfig, dirDiags := loadConfigDir(fileSystem, configDir)
 				diags = diags.Append(dirDiags)
 				config = config.Merge(dirConfig)
@@ -175,14 +174,14 @@ func LoadConfig(_ context.Context, fileSystem afero.Fs) (*Config, tfdiags.Diagno
 }
 
 // loadConfigFile loads the CLI configuration from ".tofurc" files.
-func loadConfigFile(fileSystem afero.Fs, path string) (*Config, tfdiags.Diagnostics) {
+func loadConfigFile(fileSystem fs.FS, path string) (*Config, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 	result := &Config{}
 
 	log.Printf("Loading CLI configuration from %s", path)
 
 	// Read the HCL file and prepare for parsing
-	d, err := afero.ReadFile(fileSystem, path)
+	d, err := fs.ReadFile(fileSystem, path)
 	if err != nil {
 		diags = diags.Append(fmt.Errorf("Error reading %s: %w", path, err))
 		return result, diags
@@ -225,11 +224,11 @@ func loadConfigFile(fileSystem afero.Fs, path string) (*Config, tfdiags.Diagnost
 	return result, diags
 }
 
-func loadConfigDir(fileSystem afero.Fs, path string) (*Config, tfdiags.Diagnostics) {
+func loadConfigDir(fileSystem fs.FS, path string) (*Config, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 	result := &Config{}
 
-	entries, err := afero.ReadDir(fileSystem, path)
+	entries, err := fs.ReadDir(fileSystem, path)
 	if err != nil {
 		diags = diags.Append(fmt.Errorf("Error reading %s: %w", path, err))
 		return result, diags
@@ -313,7 +312,7 @@ func makeEnvMap(environ []string) map[string]string {
 // On success, the returned diagnostics will return false from the HasErrors
 // method. A non-nil diagnostics is not necessarily an error, since it may
 // contain just warnings.
-func (c *Config) Validate(fileSystem afero.Fs) tfdiags.Diagnostics {
+func (c *Config) Validate(fileSystem fs.FS) tfdiags.Diagnostics {
 	var diags tfdiags.Diagnostics
 
 	if c == nil {
@@ -380,7 +379,7 @@ func (c *Config) Validate(fileSystem afero.Fs) tfdiags.Diagnostics {
 	}
 
 	if c.PluginCacheDir != "" {
-		_, err := fileSystem.Stat(c.PluginCacheDir)
+		_, err := fs.Stat(fileSystem, c.PluginCacheDir)
 		if err != nil {
 			diags = diags.Append(
 				fmt.Errorf("The specified plugin cache dir %s cannot be opened: %w", c.PluginCacheDir, err),
@@ -459,7 +458,7 @@ func (c *Config) Merge(c2 *Config) *Config {
 	return &result
 }
 
-func cliConfigFile(fileSystem afero.Fs) (string, tfdiags.Diagnostics) {
+func cliConfigFile(fileSystem fs.FS) (string, tfdiags.Diagnostics) {
 	var diags tfdiags.Diagnostics
 	mustExist := true
 

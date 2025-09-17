@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"os/signal"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/opentofu/svchost"
 	"github.com/opentofu/svchost/disco"
 	"github.com/opentofu/svchost/svcauth"
-	"github.com/spf13/afero"
 
 	"github.com/opentofu/opentofu/internal/addrs"
 	"github.com/opentofu/opentofu/internal/command"
@@ -59,7 +59,7 @@ var Ui cli.Ui
 
 func initCommands(
 	ctx context.Context,
-	fileSystem afero.Fs,
+	fileSystem fs.FS,
 	originalWorkingDir string,
 	streams *terminal.Streams,
 	config *cliconfig.Config,
@@ -488,7 +488,7 @@ func makeShutdownCh() <-chan struct{} {
 	return resultCh
 }
 
-func credentialsSource(fileSystem afero.Fs, config *cliconfig.Config) (svcauth.CredentialsSource, error) {
+func credentialsSource(fileSystem fs.FS, config *cliconfig.Config) (svcauth.CredentialsSource, error) {
 	helperPlugins := pluginDiscovery.FindPlugins("credentials", globalPluginDirs(fileSystem))
 	return config.CredentialsSource(fileSystem, helperPlugins)
 }

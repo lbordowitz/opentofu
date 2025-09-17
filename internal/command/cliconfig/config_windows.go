@@ -9,11 +9,10 @@
 package cliconfig
 
 import (
+	"io/fs"
 	"path/filepath"
 	"syscall"
 	"unsafe"
-
-	"github.com/spf13/afero"
 )
 
 var (
@@ -23,7 +22,7 @@ var (
 
 const CSIDL_APPDATA = 26
 
-func configFile(fileSystem afero.Fs) (string, error) {
+func configFile(fileSystem fs.FS) (string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return "", err
@@ -35,7 +34,7 @@ func configFile(fileSystem afero.Fs) (string, error) {
 	return getNewOrLegacyPath(newConfigFile, legacyConfigFile)
 }
 
-func configDir(fileSystem afero.Fs) (string, error) {
+func configDir(fileSystem fs.FS) (string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return "", err
@@ -44,8 +43,8 @@ func configDir(fileSystem afero.Fs) (string, error) {
 	return filepath.Join(dir, "terraform.d"), nil
 }
 
-func dataDirs() ([]string, error) {
-	dir, err := configDir()
+func dataDirs(fileSystem fs.FS) ([]string, error) {
+	dir, err := configDir(fileSystem)
 	if err != nil {
 		return nil, err
 	}

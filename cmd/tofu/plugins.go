@@ -7,12 +7,12 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
 	"path/filepath"
 	"runtime"
 
 	"github.com/opentofu/opentofu/internal/command/cliconfig"
-	"github.com/spf13/afero"
 )
 
 // globalPluginDirs returns directories that should be searched for
@@ -21,7 +21,7 @@ import (
 // Earlier entries in this slice get priority over later when multiple copies
 // of the same plugin version are found, but newer versions always override
 // older versions where both satisfy the provider version constraints.
-func globalPluginDirs(fileSystem afero.Fs) []string {
+func globalPluginDirs(fileSystem fs.FS) []string {
 	var ret []string
 	// Look in ~/.terraform.d/plugins/, $XDG_DATA_HOME/opentofu/plugins, or its equivalent on non-UNIX platforms
 	dirs, err := cliconfig.DataDirs(fileSystem)

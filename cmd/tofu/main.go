@@ -156,7 +156,7 @@ func realMain() int {
 		log.Printf("[TRACE] Stdin is not a terminal")
 	}
 
-	fileSystem := afero.NewOsFs()
+	fileSystem := afero.NewIOFS(afero.NewOsFs())
 
 	// NOTE: We're intentionally calling LoadConfig _before_ handling a possible
 	// -chdir=... option on the command line, so that a possible relative
@@ -244,6 +244,7 @@ func realMain() int {
 	}
 
 	providerSrc, diags := providerSource(ctx,
+		fileSystem,
 		config.ProviderInstallation,
 		config.RegistryProtocols,
 		services,
