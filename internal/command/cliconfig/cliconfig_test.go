@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"testing/fstest"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/google/go-cmp/cmp"
-	"github.com/spf13/afero"
 
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
@@ -22,8 +22,7 @@ import (
 const fixtureDir = "./testdata"
 
 func TestLoadConfig_ignore_providers_provisioners(t *testing.T) {
-	afs := afero.NewOsFs()
-	fileSystem := afero.NewIOFS(afs)
+	fileSystem := RootFileSystem()
 	// There used to be providers and provisioners in cli config files
 	// We want to make sure config files load properly despite their
 	// possible presence.
@@ -48,10 +47,8 @@ func TestLoadConfig_ignore_providers_provisioners(t *testing.T) {
 }
 
 func TestLoadConfig_non_existing_file(t *testing.T) {
-	afs := afero.NewMemMapFs()
-	tmpDir := afero.GetTempDir(afs, "")
-	fileSystem := afero.NewIOFS(afs)
-	cliTmpFile := filepath.Join(tmpDir, "dev.tfrc")
+	fileSystem := fstest.MapFS{}
+	cliTmpFile := filepath.Join("tmp", "dev.tfrc")
 
 	t.Setenv("TF_CLI_CONFIG_FILE", cliTmpFile)
 
@@ -209,8 +206,7 @@ func TestMakeEnvMap(t *testing.T) {
 }
 
 func TestLoadConfig_hosts(t *testing.T) {
-	afs := afero.NewOsFs()
-	fileSystem := afero.NewIOFS(afs)
+	fileSystem := RootFileSystem()
 	got, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "hosts"))
 	if len(diags) != 0 {
 		t.Fatalf("%s", diags.Err())
@@ -232,8 +228,7 @@ func TestLoadConfig_hosts(t *testing.T) {
 }
 
 func TestLoadConfig_credentials(t *testing.T) {
-	afs := afero.NewOsFs()
-	fileSystem := afero.NewIOFS(afs)
+	fileSystem := RootFileSystem()
 	got, err := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "credentials"))
 	if err != nil {
 		t.Fatal(err)
@@ -360,8 +355,7 @@ func TestConfigValidate(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			afs := afero.NewMemMapFs()
-			fileSystem := afero.NewIOFS(afs)
+			fileSystem := fstest.MapFS{}
 			diags := test.Config.Validate(fileSystem)
 			if len(diags) != test.DiagCount {
 				t.Errorf("wrong number of diagnostics %d; want %d", len(diags), test.DiagCount)

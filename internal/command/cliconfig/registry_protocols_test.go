@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/spf13/afero"
 )
 
 func TestLoadConfig_registryProtocols(t *testing.T) {
@@ -227,8 +226,7 @@ func TestLoadConfig_registryProtocols(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			afs := afero.NewOsFs()
-			fileSystem := afero.NewIOFS(afs)
+			fileSystem := RootFileSystem()
 			fixtureFile := filepath.Join("testdata", test.fixture)
 
 			// We set the file to load using this environment variable because

@@ -16,7 +16,6 @@ import (
 	"github.com/opentofu/opentofu/internal/command/cliconfig"
 	"github.com/opentofu/opentofu/internal/command/cliconfig/ociauthconfig"
 	"github.com/opentofu/svchost/disco"
-	"github.com/spf13/afero"
 )
 
 func TestProviderSource(t *testing.T) {
@@ -122,7 +121,7 @@ func TestProviderSource(t *testing.T) {
 				return ociauthconfig.CredentialsConfigs{}, nil
 			}
 
-			fileSystem := afero.NewIOFS(afero.NewOsFs())
+			fileSystem := cliconfig.RootFileSystem()
 
 			// Call the function under test
 			source, diags := providerSource(
