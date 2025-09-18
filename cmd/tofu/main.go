@@ -22,7 +22,6 @@ import (
 	"github.com/mattn/go-shellwords"
 	"github.com/mitchellh/cli"
 	"github.com/mitchellh/colorstring"
-	"github.com/spf13/afero"
 
 	"github.com/opentofu/opentofu/internal/addrs"
 	"github.com/opentofu/opentofu/internal/command/cliconfig"
@@ -156,7 +155,7 @@ func realMain() int {
 		log.Printf("[TRACE] Stdin is not a terminal")
 	}
 
-	fileSystem := afero.NewIOFS(afero.NewOsFs())
+	fileSystem := cliconfig.RootFileSystem()
 
 	// NOTE: We're intentionally calling LoadConfig _before_ handling a possible
 	// -chdir=... option on the command line, so that a possible relative

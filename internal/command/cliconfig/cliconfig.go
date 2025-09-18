@@ -100,6 +100,10 @@ type ConfigCredentialsHelper struct {
 // can be overridden by user configurations.
 var BuiltinConfig Config
 
+func RootFileSystem() fs.FS {
+	return rootFileSystem()
+}
+
 // ConfigFile returns the default path to the configuration file.
 //
 // On Unix-like systems this is the ".tofurc" file in the home directory.
