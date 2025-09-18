@@ -18,7 +18,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/opentofu/opentofu/internal/command/cliconfig/ociauthconfig"
-	"github.com/spf13/afero"
 )
 
 func TestLoadConfig_ociDefaultCredentials(t *testing.T) {
@@ -93,8 +92,7 @@ func TestLoadConfig_ociDefaultCredentials(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			afs := afero.NewOsFs()
-			fileSystem := afero.NewIOFS(afs)
+			fileSystem := RootFileSystem()
 			fixtureFile := filepath.Join("testdata", name)
 			gotConfig, diags := loadConfigFile(fileSystem, fixtureFile)
 			if diags.HasErrors() {
@@ -120,8 +118,7 @@ func TestLoadConfig_ociDefaultCredentials(t *testing.T) {
 	}
 
 	t.Run("oci-default-credentials-duplicate", func(t *testing.T) {
-		afs := afero.NewOsFs()
-		fileSystem := afero.NewIOFS(afs)
+		fileSystem := RootFileSystem()
 		// This one is different than all of the others because it
 		// only gets detected as invalid during the validation step,
 		// so that (in the normal case) we can check it only after
@@ -274,8 +271,7 @@ func TestLoadConfig_ociCredentials(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			afs := afero.NewOsFs()
-			fileSystem := afero.NewIOFS(afs)
+			fileSystem := RootFileSystem()
 			fixtureFile := filepath.Join("testdata", name)
 			gotConfig, diags := loadConfigFile(fileSystem, fixtureFile)
 			if diags.HasErrors() {
@@ -298,8 +294,7 @@ func TestLoadConfig_ociCredentials(t *testing.T) {
 	}
 
 	t.Run("oci-credentials-duplicate", func(t *testing.T) {
-		afs := afero.NewOsFs()
-		fileSystem := afero.NewIOFS(afs)
+		fileSystem := RootFileSystem()
 		// This one is different than all of the others because it
 		// only gets detected as invalid during the validation step,
 		// so that (in the normal case) we can check it only after
@@ -645,8 +640,7 @@ func TestConfigOCICredentialsPolicy(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			afs := afero.NewOsFs()
-			fileSystem := afero.NewIOFS(afs)
+			fileSystem := RootFileSystem()
 			var osName string
 			if lastDashIdx := strings.LastIndexByte(name, '-'); lastDashIdx == -1 {
 				t.Fatalf("test name does not include -osname suffix")

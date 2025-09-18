@@ -17,6 +17,10 @@ import (
 	"strings"
 )
 
+func rootFileSystem() fs.FS {
+	return os.DirFS(string(os.PathSeparator))
+}
+
 func configFile(fileSystem fs.FS) (string, error) {
 	dir, err := homeDir()
 	if err != nil {

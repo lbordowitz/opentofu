@@ -24,6 +24,11 @@ var (
 
 const CSIDL_APPDATA = 26
 
+func rootFileSystem() fs.FS {
+	drive := os.Getenv("SystemDrive")
+	return os.DirFS(drive + string(os.PathSeparator))
+}
+
 func configFile(fileSystem fs.FS) (string, error) {
 	dir, err := homeDir()
 	if err != nil {

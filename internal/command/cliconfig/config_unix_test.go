@@ -12,8 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-
-	"github.com/spf13/afero"
+	"testing/fstest"
 )
 
 func TestConfigFileConfigDir(t *testing.T) {
@@ -75,12 +74,11 @@ func TestConfigFileConfigDir(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			afs := afero.NewMemMapFs()
-			fileSystem := afero.NewIOFS(afs)
+			fileSystem := fstest.MapFS{}
 			t.Setenv("HOME", homeDir)
 			t.Setenv("XDG_CONFIG_HOME", test.xdgConfigHome)
 			for _, f := range test.files {
-				createFile(t, afs, f)
+				createFile(t, fileSystem, f)
 			}
 
 			file, err := configFile(fileSystem)
@@ -120,8 +118,7 @@ func TestDataDirs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			afs := afero.NewMemMapFs()
-			fileSystem := afero.NewIOFS(afs)
+			fileSystem := fstest.MapFS{}
 
 			t.Setenv("HOME", homeDir)
 			t.Setenv("XDG_DATA_HOME", test.xdgDataHome)
@@ -137,13 +134,18 @@ func TestDataDirs(t *testing.T) {
 	}
 }
 
-func createFile(t *testing.T, fileSystem afero.Fs, path string) {
+func createFile(t *testing.T, fileSystem fstest.MapFS, path string) {
 	t.Helper()
-	if err := fileSystem.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
+	fileSystem[path] = &fstest.MapFile{
+		Data: nil,
+		Mode: 0o600,
+		// Sys:  fileSystem,
 	}
-	if err := afero.WriteFile(fileSystem, path, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = fileSystem.RemoveAll(filepath.Dir(path)) })
+	// if err := fileSystem.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	// 	t.Fatal(err)
+	// }
+	// if err := afero.WriteFile(fileSystem, path, nil, 0o600); err != nil {
+	// 	t.Fatal(err)
+	// }
+	// t.Cleanup(func() { _ = fileSystem.RemoveAll(filepath.Dir(path)) })
 }
