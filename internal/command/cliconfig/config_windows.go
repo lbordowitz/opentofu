@@ -24,7 +24,7 @@ var (
 
 const CSIDL_APPDATA = 26
 
-func configFile(_ fs.FS) (string, error) {
+func configFile(fileSystem fs.FS) (string, error) {
 	dir, err := homeDir()
 	if err != nil {
 		return "", err
@@ -33,7 +33,7 @@ func configFile(_ fs.FS) (string, error) {
 	newConfigFile := filepath.Join(dir, "tofu.rc")
 	legacyConfigFile := filepath.Join(dir, "terraform.rc")
 
-	return getNewOrLegacyPath(newConfigFile, legacyConfigFile)
+	return getNewOrLegacyPath(fileSystem, newConfigFile, legacyConfigFile)
 }
 
 func configDir(_ fs.FS) (string, error) {

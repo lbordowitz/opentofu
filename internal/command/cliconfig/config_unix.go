@@ -31,7 +31,7 @@ func configFile(fileSystem fs.FS) (string, error) {
 		return filepath.Join(xdgDir, "opentofu", "tofurc"), nil
 	}
 
-	return getNewOrLegacyPath(newConfigFile, legacyConfigFile)
+	return getNewOrLegacyPath(fileSystem, newConfigFile, legacyConfigFile)
 }
 
 func configDir(fileSystem fs.FS) (string, error) {
