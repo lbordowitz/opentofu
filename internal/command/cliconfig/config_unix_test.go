@@ -136,7 +136,7 @@ func TestDataDirs(t *testing.T) {
 
 func createFile(t *testing.T, fileSystem fstest.MapFS, path string) {
 	t.Helper()
-	fileSystem[path] = &fstest.MapFile{
+	fileSystem[fsRelativize(path)] = &fstest.MapFile{
 		Data: nil,
 		Mode: 0o600,
 		// Sys:  fileSystem,
