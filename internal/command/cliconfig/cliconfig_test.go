@@ -7,6 +7,7 @@ package cliconfig
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -26,9 +27,13 @@ func TestLoadConfig_ignore_providers_provisioners(t *testing.T) {
 	// There used to be providers and provisioners in cli config files
 	// We want to make sure config files load properly despite their
 	// possible presence.
-	c, err := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "config"))
+	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("err: %s", err)
+	}
+	c, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "config"))
+	if diags != nil {
+		t.Fatalf("err: %s", diags)
 	}
 
 	expected := &Config{
@@ -207,7 +212,11 @@ func TestMakeEnvMap(t *testing.T) {
 
 func TestLoadConfig_hosts(t *testing.T) {
 	fileSystem := RootFileSystem()
-	got, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "hosts"))
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	got, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "hosts"))
 	if len(diags) != 0 {
 		t.Fatalf("%s", diags.Err())
 	}
@@ -229,9 +238,13 @@ func TestLoadConfig_hosts(t *testing.T) {
 
 func TestLoadConfig_credentials(t *testing.T) {
 	fileSystem := RootFileSystem()
-	got, err := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "credentials"))
+	wd, err := os.Getwd()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("err: %s", err)
+	}
+	got, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "credentials"))
+	if diags != nil {
+		t.Fatal(diags)
 	}
 
 	want := &Config{
