@@ -6,6 +6,7 @@
 package cliconfig
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -227,7 +228,11 @@ func TestLoadConfig_registryProtocols(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			fileSystem := RootFileSystem()
-			fixtureFile := filepath.Join("testdata", test.fixture)
+			wd, err := os.Getwd()
+			if err != nil {
+				t.Fatalf("err: %s", err)
+			}
+			fixtureFile := filepath.Join(wd, "testdata", test.fixture)
 
 			// We set the file to load using this environment variable because
 			// otherwise we can't use the LoadConfig entrypoint, which we're
