@@ -96,6 +96,9 @@ func homeDir() (string, error) {
 // look in the operating system file system at "/home/username/.tofurc".
 // More details in this documentation: https://pkg.go.dev/io/fs#ValidPath
 func fsRelativize(dir string) string {
+	if dir == "" {
+		return ""
+	}
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		log.Printf("[WARNING] Attempted to form absolute representation of relative path \"%s\", but ran into an error: %v", dir, err)

@@ -78,6 +78,9 @@ func homeDir() (string, error) {
 // Note the slashes: fs.FS does not accept a backslash as an acceptable path separator.
 // More details in this documentation: https://pkg.go.dev/io/fs#ValidPath
 func fsRelativize(dir string) string {
+	if dir == "" {
+		return ""
+	}
 	// https://learn.microsoft.com/en-us/windows/deployment/usmt/usmt-recognized-environment-variables
 	// Note that this will resolve to "C:", not "C:\"
 	absDir, err := filepath.Abs(dir)
