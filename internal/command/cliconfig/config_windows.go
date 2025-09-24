@@ -10,6 +10,7 @@ package cliconfig
 
 import (
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,9 +24,10 @@ var (
 )
 
 const CSIDL_APPDATA = 26
+const SYSTEM_DRIVE = "SystemDrive"
 
 func rootFileSystem() fs.FS {
-	drive := os.Getenv("SystemDrive")
+	drive := os.Getenv(SYSTEM_DRIVE)
 	return os.DirFS(drive + string(os.PathSeparator))
 }
 
@@ -78,7 +80,11 @@ func homeDir() (string, error) {
 func fsRelativize(dir string) string {
 	// https://learn.microsoft.com/en-us/windows/deployment/usmt/usmt-recognized-environment-variables
 	// Note that this will resolve to "C:", not "C:\"
-	drive := os.Getenv("SystemDrive")
-	driveRemovedPath := strings.TrimPrefix(dir, drive)
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		log.Printf("[WARNING] Attempted to form absolute representation of relative path \"%s\", but ran into an error: %v", dir, err)
+	}
+	drive := os.Getenv(SYSTEM_DRIVE)
+	driveRemovedPath := strings.TrimPrefix(absDir, drive)
 	return filepath.ToSlash(strings.Trim(driveRemovedPath, string(os.PathSeparator)))
 }

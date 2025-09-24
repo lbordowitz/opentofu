@@ -11,6 +11,7 @@ package cliconfig
 import (
 	"errors"
 	"io/fs"
+	"log"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -95,7 +96,11 @@ func homeDir() (string, error) {
 // look in the operating system file system at "/home/username/.tofurc".
 // More details in this documentation: https://pkg.go.dev/io/fs#ValidPath
 func fsRelativize(dir string) string {
-	return filepath.ToSlash(strings.Trim(dir, string(os.PathSeparator)))
+	absDir, err := filepath.Abs(dir)
+	if err != nil {
+		log.Printf("[WARNING] Attempted to form absolute representation of relative path \"%s\", but ran into an error: %v", dir, err)
+	}
+	return filepath.ToSlash(strings.Trim(absDir, string(os.PathSeparator)))
 }
 
 func pathExists(fileSystem fs.FS, path string) bool {
