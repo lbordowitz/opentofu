@@ -6,7 +6,6 @@
 package cliconfig
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,11 +21,7 @@ func TestLoadConfig_providerInstallation(t *testing.T) {
 	for _, configFile := range []string{"provider-installation", "provider-installation.json"} {
 		t.Run(configFile, func(t *testing.T) {
 			fileSystem := RootFileSystem()
-			wd, err := os.Getwd()
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
-			got, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, configFile))
+			got, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, configFile))
 			if diags.HasErrors() {
 				t.Errorf("unexpected diagnostics: %s", diags.Err().Error())
 			}
@@ -70,11 +65,7 @@ func TestLoadConfig_providerInstallation(t *testing.T) {
 
 func TestLoadConfig_providerInstallationErrors(t *testing.T) {
 	fileSystem := RootFileSystem()
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	_, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "provider-installation-errors"))
+	_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-errors"))
 	want := `7 problems:
 
 - Invalid provider_installation method block: Unknown provider installation method "not_a_thing" at 2:3.
@@ -99,11 +90,7 @@ func TestLoadConfig_providerInstallationOCIMirror(t *testing.T) {
 	for _, configFile := range []string{"provider-installation-oci", "provider-installation-oci.json"} {
 		t.Run(configFile, func(t *testing.T) {
 			fileSystem := RootFileSystem()
-			wd, err := os.Getwd()
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
-			gotConfig, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, configFile))
+			gotConfig, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, configFile))
 			if diags.HasErrors() {
 				t.Fatalf("unexpected diagnostics: %s", diags.Err().Error())
 			}
@@ -195,13 +182,9 @@ func TestLoadConfig_providerInstallationOCIMirror(t *testing.T) {
 }
 
 func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
 	t.Run("missing hostname reference", func(t *testing.T) {
 		fileSystem := RootFileSystem()
-		_, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "provider-installation-oci-missinghostname"))
+		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-missinghostname"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
 		}
@@ -211,7 +194,7 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 	})
 	t.Run("missing namespace reference", func(t *testing.T) {
 		fileSystem := RootFileSystem()
-		_, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "provider-installation-oci-missingnamespace"))
+		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-missingnamespace"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
 		}
@@ -221,7 +204,7 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 	})
 	t.Run("missing type reference", func(t *testing.T) {
 		fileSystem := RootFileSystem()
-		_, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "provider-installation-oci-missingtype"))
+		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-missingtype"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
 		}
@@ -231,7 +214,7 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 	})
 	t.Run("type error in template", func(t *testing.T) {
 		fileSystem := RootFileSystem()
-		_, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "provider-installation-oci-typeerror"))
+		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-typeerror"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
 		}
@@ -241,7 +224,7 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 	})
 	t.Run("value error in template", func(t *testing.T) {
 		fileSystem := RootFileSystem()
-		_, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "provider-installation-oci-valueerror"))
+		_, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-valueerror"))
 		if !diags.HasErrors() {
 			t.Fatalf("unexpected success; want error")
 		}
@@ -251,7 +234,7 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 	})
 	t.Run("dynamic error in template", func(t *testing.T) {
 		fileSystem := RootFileSystem()
-		cfg, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "provider-installation-oci-dynerror"))
+		cfg, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-dynerror"))
 		if diags.HasErrors() {
 			t.Fatalf("unexpected error for configuration load (error should be only during template evaluation)")
 		}
@@ -282,7 +265,7 @@ func TestLoadConfig_providerInstallationOCIMirrorErrors(t *testing.T) {
 		// providers, but we can't tell whether they are more common in private provider
 		// registries. For now we treat this as an error but we might try to find a better
 		// answer for this in a future release if it proves to be a problem in practice.
-		cfg, diags := loadConfigFile(fileSystem, filepath.Join(wd, fixtureDir, "provider-installation-oci-passthru"))
+		cfg, diags := loadConfigFile(fileSystem, filepath.Join(fixtureDir, "provider-installation-oci-passthru"))
 		if diags.HasErrors() {
 			t.Fatalf("unexpected error for configuration load (error should be only during template evaluation)")
 		}

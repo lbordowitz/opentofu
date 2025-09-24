@@ -93,11 +93,7 @@ func TestLoadConfig_ociDefaultCredentials(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			fileSystem := RootFileSystem()
-			wd, err := os.Getwd()
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
-			fixtureFile := filepath.Join(wd, "testdata", name)
+			fixtureFile := filepath.Join("testdata", name)
 			gotConfig, diags := loadConfigFile(fileSystem, fixtureFile)
 			if diags.HasErrors() {
 				errStr := diags.Err().Error()
@@ -123,15 +119,11 @@ func TestLoadConfig_ociDefaultCredentials(t *testing.T) {
 
 	t.Run("oci-default-credentials-duplicate", func(t *testing.T) {
 		fileSystem := RootFileSystem()
-		wd, err := os.Getwd()
-		if err != nil {
-			t.Fatalf("err: %s", err)
-		}
 		// This one is different than all of the others because it
 		// only gets detected as invalid during the validation step,
 		// so that (in the normal case) we can check it only after
 		// we've merged all of the separate CLI config files together.
-		fixtureFile := filepath.Join(wd, "testdata", "oci-default-credentials-duplicate")
+		fixtureFile := filepath.Join("testdata", "oci-default-credentials-duplicate")
 		gotConfig, loadDiags := loadConfigFile(fileSystem, fixtureFile)
 		if loadDiags.HasErrors() {
 			t.Errorf("unexpected errors from loadConfigFile: %s", loadDiags.Err().Error())
@@ -279,12 +271,8 @@ func TestLoadConfig_ociCredentials(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			wd, err := os.Getwd()
-			if err != nil {
-				t.Fatalf("err: %s", err)
-			}
 			fileSystem := RootFileSystem()
-			fixtureFile := filepath.Join(wd, "testdata", name)
+			fixtureFile := filepath.Join("testdata", name)
 			gotConfig, diags := loadConfigFile(fileSystem, fixtureFile)
 			if diags.HasErrors() {
 				errStr := diags.Err().Error()
@@ -311,11 +299,7 @@ func TestLoadConfig_ociCredentials(t *testing.T) {
 		// only gets detected as invalid during the validation step,
 		// so that (in the normal case) we can check it only after
 		// we've merged all of the separate CLI config files together.
-		wd, err := os.Getwd()
-		if err != nil {
-			t.Fatalf("err: %s", err)
-		}
-		fixtureFile := filepath.Join(wd, "testdata", "oci-credentials-duplicate")
+		fixtureFile := filepath.Join("testdata", "oci-credentials-duplicate")
 		gotConfig, loadDiags := loadConfigFile(fileSystem, fixtureFile)
 		if loadDiags.HasErrors() {
 			t.Errorf("unexpected errors from loadConfigFile: %s", loadDiags.Err().Error())
@@ -354,11 +338,7 @@ func TestConfigOCICredentialsPolicy(t *testing.T) {
 		wantSpecificity ociauthconfig.CredentialsSpecificity
 		wantCredentials *ociauthconfig.Credentials
 	}
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	fixturesDir := filepath.Join(wd, "testdata", "oci-credentials-policy")
+	fixturesDir := filepath.Join("testdata", "oci-credentials-policy")
 
 	// The keys of the following map correspond to directories under
 	// testdata/oci-credentials-policy. Each directory should include
