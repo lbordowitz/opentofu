@@ -150,13 +150,9 @@ func createFile(t *testing.T, fileSystem fstest.MapFS, path string) {
 	fileSystem[fsRelativize(path)] = &fstest.MapFile{
 		Data: nil,
 		Mode: 0o600,
-		// Sys:  fileSystem,
 	}
-	// if err := fileSystem.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-	// 	t.Fatal(err)
-	// }
-	// if err := afero.WriteFile(fileSystem, path, nil, 0o600); err != nil {
-	// 	t.Fatal(err)
-	// }
-	// t.Cleanup(func() { _ = fileSystem.RemoveAll(filepath.Dir(path)) })
+	fileSystem[fsRelativize(filepath.Dir(path))] = &fstest.MapFile{
+		Data: nil,
+		Mode: fs.ModeDir | 0o755,
+	}
 }
