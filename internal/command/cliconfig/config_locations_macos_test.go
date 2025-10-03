@@ -38,7 +38,6 @@ type locationTest struct {
 	expected    map[string]*ConfigHost
 }
 
-//  - XDG config: ignore .terraformrc and .tofurc, only take config files in that directory
 //  - environment variable: ignore everything except that environment variable
 
 func TestConfigFileLocations(t *testing.T) {
@@ -131,6 +130,28 @@ func TestConfigFileLocations(t *testing.T) {
 				"config0.example.com": {
 					Services: map[string]interface{}{
 						"modules.v0": "https://config0.example.com/",
+					},
+				},
+			},
+		},
+		{
+			name:    "ignore everything else when env override is present",
+			files:   []string{filepath.Join(home, "mytofufile"), filepath.Join(home, ".terraformrc"), filepath.Join(home, ".tofurc")},
+			envVars: map[string]string{"TF_CLI_CONFIG_FILE": filepath.Join(home, "mytofufile")},
+			expected: map[string]*ConfigHost{
+				"config0.example.com": {
+					Services: map[string]interface{}{
+						"modules.v0": "https://config0.example.com/",
+					},
+				},
+				"0and1.example.com": {
+					Services: map[string]interface{}{
+						"modules.v0": "https://0and1.example.com/",
+					},
+				},
+				"0and2.example.com": {
+					Services: map[string]interface{}{
+						"modules.v0": "https://0and2.example.com/",
 					},
 				},
 			},
