@@ -1,0 +1,54 @@
+internal/addrs/override_trie.go
+  human 100-101
+internal/addrs/override_trie_test.go
+  human 10-11,14-15,68,105,107,110-119,121-122
+---
+{
+  "attestations": [
+    {
+      "entries": [
+        {
+          "accepted_lines": 2,
+          "added_lines": 2,
+          "deleted_lines": 0,
+          "hash": "human",
+          "lines": "100-101",
+          "overridden_lines": 0
+        }
+      ],
+      "file": "internal/addrs/override_trie.go"
+    },
+    {
+      "entries": [
+        {
+          "accepted_lines": 19,
+          "added_lines": 19,
+          "deleted_lines": 0,
+          "hash": "human",
+          "lines": "10-11,14-15,68,105,107,110-119,121-122",
+          "overridden_lines": 0
+        }
+      ],
+      "file": "internal/addrs/override_trie_test.go"
+    }
+  ],
+  "base_commit_sha": "0c236f348e2771c310d9daa55c373b8392ddd63f",
+  "branch": "test_support_for_each_splat",
+  "commit_sha": "b5816026563ad3c3a060eaa2500071cc20d60f0f",
+  "commit_time": "2026-05-06T15:28:08-05:00",
+  "commit_type": "direct_commit",
+  "git_ai_version": "1.4.2",
+  "prompts": {
+    "human": {
+      "accepted_lines": 21,
+      "agent_id": null,
+      "human_author": "Larry Bordowitz <laurence.bordowitz@gmail.com>",
+      "messages": [],
+      "overriden_lines": 0,
+      "total_additions": 21,
+      "total_deletions": 0
+    }
+  },
+  "repo": "git@github.com:opentofu/opentofu.git",
+  "schema_version": "authorship/3.0.0"
+}
