@@ -422,6 +422,14 @@ func (r AbsResourceInstance) UniqueKey() UniqueKey {
 	return absResourceInstanceKey(r.String())
 }
 
+func (r AbsResourceInstance) Noun() string {
+	return "resource instance"
+}
+
+func (r AbsResourceInstance) ShortNoun() string {
+	return "resource"
+}
+
 func (r absResourceInstanceKey) uniqueKeySigil() {}
 
 func (r AbsResourceInstance) absMoveableSigil() {
