@@ -10,13 +10,15 @@ import (
 
 	"github.com/opentofu/opentofu/internal/addrs"
 	"github.com/opentofu/opentofu/internal/providers"
+	"github.com/opentofu/opentofu/internal/refactoring"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
 // A PlanningOracle provides information from the configuration that is needed
 // by the planning engine to help orchestrate the planning process.
 type PlanningOracle struct {
-	providers *managedProviders
+	providers      *managedProviders
+	moveStatements []refactoring.MoveStatement
 }
 
 // ProviderInstanceConfig returns a value representing the configuration to

@@ -89,6 +89,14 @@ func (c AbsModuleCall) UniqueKey() UniqueKey {
 	return absModuleCallInstanceKey(c.String())
 }
 
+func (c AbsModuleCall) Noun() string {
+	return "module call"
+}
+
+func (c AbsModuleCall) ShortNoun() string {
+	return "call"
+}
+
 func (mk absModuleCallInstanceKey) uniqueKeySigil() {}
 
 // ModuleCallInstance is the address of one instance of a module created from

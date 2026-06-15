@@ -18,6 +18,7 @@ import (
 	"github.com/opentofu/opentofu/internal/lang/eval/internal/evalglue"
 	"github.com/opentofu/opentofu/internal/lang/exprs"
 	"github.com/opentofu/opentofu/internal/lang/grapheval"
+	"github.com/opentofu/opentofu/internal/refactoring"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
@@ -36,6 +37,8 @@ type CompiledModuleInstance struct {
 	moduleCallNodes     map[addrs.ModuleCall]*configgraph.ModuleCall
 	providerConfigNodes map[addrs.LocalProviderConfig]*configgraph.ProviderConfig
 	providerLocalNames  map[addrs.Provider]string
+
+	moveStatements []refactoring.MoveStatement
 
 	missingProviders rootMissingProviders
 
@@ -273,4 +276,19 @@ func (c *CompiledModuleInstance) AnnounceAllGraphevalRequests(announce func(work
 	for _, n := range c.providerConfigNodes {
 		n.AnnounceAllGraphevalRequests(announce)
 	}
+}
+
+// GetMoveStatements implements evalglue.GetMoveStatements.
+func (c *CompiledModuleInstance) GetMoveStatements(ctx context.Context) []refactoring.MoveStatement {
+	myMoveStatements := c.moveStatements
+	for callAddr := range c.ChildModuleCalls(ctx) {
+		// TODO rather than for/break, maybe just get one, if it exists? But that's kind of difficult.
+		for _, compiled := range c.ChildModuleInstancesForCall(ctx, callAddr) {
+			// Note: move statement addresses are already "unified" with their module address relative to the root
+			subModuleMoveStatements := compiled.GetMoveStatements(ctx)
+			myMoveStatements = append(myMoveStatements, subModuleMoveStatements...)
+			break
+		}
+	}
+	return myMoveStatements
 }

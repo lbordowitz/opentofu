@@ -19,6 +19,21 @@ import (
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
+// ValidateMoveStatementGraph takes a set of move statements and validates that there
+// are no cycles in it. This is a strict subset of validations done by
+// ValidateMoves, which was written for the runtime defined in the `tofu` package.
+// Local checks for ambiguous moves and moving from a resource which
+// is still defined in the configuration are done on a per-resource
+// basis in the 2026 engine.
+func ValidateMoveStatementGraph(stmts []MoveStatement) tfdiags.Diagnostics {
+	if len(stmts) == 0 {
+		return nil
+	}
+
+	g := buildMoveStatementGraph(stmts)
+	return validateMoveStatementGraph(g)
+}
+
 // ValidateMoves tests whether all of the given move statements comply with
 // both the single-statement validation rules and the "big picture" rules
 // that constrain statements in relation to one another.
@@ -76,25 +91,8 @@ func ValidateMoves(stmts []MoveStatement, rootCfg *configs.Config, declaredInsts
 				continue
 			}
 
-			var noun string
-			var shortNoun string
-			switch absFrom.(type) {
-			case addrs.ModuleInstance:
-				noun = "module instance"
-				shortNoun = "instance"
-			case addrs.AbsModuleCall:
-				noun = "module call"
-				shortNoun = "call"
-			case addrs.AbsResourceInstance:
-				noun = "resource instance"
-				shortNoun = "instance"
-			case addrs.AbsResource:
-				noun = "resource"
-				shortNoun = "resource"
-			default:
-				// The above cases should cover all of the AbsMoveable types
-				panic("unsupported AbsMoveable address type")
-			}
+			noun := absFrom.Noun()
+			shortNoun := absFrom.ShortNoun()
 
 			// It's invalid to have a move statement whose "from" address
 			// refers to something that is still declared in the configuration.

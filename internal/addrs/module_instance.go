@@ -291,6 +291,14 @@ func (m ModuleInstance) UniqueKey() UniqueKey {
 	return moduleInstanceKey(m.String())
 }
 
+func (m ModuleInstance) Noun() string {
+	return "module instance"
+}
+
+func (m ModuleInstance) ShortNoun() string {
+	return "instance"
+}
+
 func (mk moduleInstanceKey) uniqueKeySigil() {}
 
 // Equal returns true if the receiver and the given other value

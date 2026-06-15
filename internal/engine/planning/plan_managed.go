@@ -132,6 +132,42 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 	var prevRoundVal cty.Value
 	var prevRoundPrivate []byte
 	prevRoundState := p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(inst.Addr.CurrentObject())
+
+	prevRunAddr := inst.Addr
+	if prevRoundState == nil {
+
+		// Ask the planning oracle whether there are any "moved" blocks
+		// that ultimately end up at inst.Addr (possibly through a chain of
+		// multiple moves).
+		addrs, moveDiags := p.oracle.FindAddressesMovedToHere(ctx, inst.Addr)
+		diags.Append(moveDiags)
+		if diags.HasErrors() {
+			// More than one address this could have come from.
+			// "Ambiguous move statements": many From, one To
+			return ret, diags
+		}
+		// Check the source instance address of each
+		// one in turn in case we find an as-yet-unclaimed resource instance
+		// that wants to be rebound to the address in inst.Addr.
+		// Addresses are given in order of reverse move
+		foundState := false
+		for _, addr := range addrs {
+			candidateState := p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(addr.CurrentObject())
+			if candidateState != nil {
+				if foundState {
+					// we found a state before, and now we found another one.
+					// In the previous runtime, this is given as a "blocked" warning.
+					// TODO implement "Moved object still exists in config" diags warning.
+					continue
+				}
+				// found state at a moveable address!
+				foundState = true
+				prevRoundState = candidateState
+				inst.Addr = addr
+			}
+		}
+		// TODO implicit moves
+	}
 	if prevRoundState != nil {
 		// While we know prevRoundState is non-nil, let's upgrade state, too.
 		// Let's do a schema version comparison before upgrade
@@ -262,15 +298,6 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 			}
 		}
 	} else {
-		// TODO: Ask the planning oracle whether there are any "moved" blocks
-		// that ultimately end up at inst.Addr (possibly through a chain of
-		// multiple moves) and check the source instance address of each
-		// one in turn in case we find an as-yet-unclaimed resource instance
-		// that wants to be rebound to the address in inst.Addr.
-		// (Note that by handling moved blocks at _this_ point we could
-		// potentially have the eval system allow dynamic instance keys etc,
-		// which the original runtime can't do because it always deals with
-		// moved blocks as a preprocessing step before doing other work.)
 		prevRoundVal = cty.NullVal(schema.Block.ImpliedType())
 	}
 
@@ -401,7 +428,7 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 	// in planOrphanManagedResourceInstance and planDeposedManagedResourceInstanceObject below.)
 	ret.PlannedChange = &plans.ResourceInstanceChange{
 		Addr:        inst.Addr,
-		PrevRunAddr: inst.Addr, // TODO: If we add "moved" support above then this must record the original address
+		PrevRunAddr: prevRunAddr,
 		ProviderAddr: addrs.AbsProviderConfig{
 			// FIXME: This is a lossy shim to the old-style provider instance
 			// address representation, since our old models aren't yet updated
@@ -489,15 +516,36 @@ func (p *planGlue) planUnwantedManagedResourceInstanceObject(
 	// to get a comprehensive set of everything we ought to depend on.
 
 	if addr.IsCurrent() {
-		// TODO: Ask the planning oracle whether there are any "moved" blocks
-		// that begin at inst.Addr, and if so check whether the chain of moves
-		// starting there will end up at a currently-unbound resource instance
-		// address. If so, we should do nothing here because
-		// [planGlue.planOrphanManagedResourceInstance] for that target address
-		// should notice the opposite end of the same chain of moves and so
-		// handle it as an object that is in both the prior and desired state,
-		// albeit with different addresses in each.
-		_ = 0 // just to quiet staticcheck about this empty branch until we complete it
+		movedAddrs, moveDiags := p.oracle.FindAddressesMovedFromHere(ctx, addr.InstanceAddr)
+		diags.Append(moveDiags)
+		if diags.HasErrors() {
+			// More than one address this could move to.
+			// "Ambiguous move statements": one From, many To
+			return ret, diags
+		}
+		foundState := false
+		for _, movedAddr := range movedAddrs {
+			candidateState := p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(movedAddr.CurrentObject())
+			if candidateState != nil {
+				// We found other state. This state further down the move chain
+				// will be preferred to move, by convention and based on how
+				// it works in the "planDesired" function
+				foundState = true
+				break
+			}
+		}
+		if !foundState {
+			ret.PlannedChange = &plans.ResourceInstanceChange{
+				Addr:        movedAddrs[len(movedAddrs)-1], // TODO will this interfere with the plan in the "desired" managed resource instance?
+				PrevRunAddr: addr.InstanceAddr,
+				Change: plans.Change{
+					Action: plans.NoOp,
+				},
+				ActionReason: plans.ResourceInstanceNoOpBecauseMoved,
+			}
+			return ret, diags
+		}
+		// TODO implicit moves
 	}
 
 	// FIXME: Currently this fails if the only mention of a particular provider

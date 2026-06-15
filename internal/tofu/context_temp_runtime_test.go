@@ -123,7 +123,7 @@ var (
 	ExperimentalFeatureRefreshOnly       = ExperimentalFlag{"Missing Refresh-only Planning Mode", false}
 	ExperimentalFeatureValidate          = ExperimentalFlag{"Missing Validate", false}
 	ExperimentalFeatureDestroy           = ExperimentalFlag{"Missing Destroy-mode Planning", true}
-	ExperimentalFeatureMoved             = ExperimentalFlag{"Missing Moved", false}
+	ExperimentalFeatureMoved             = ExperimentalFlag{"Missing Moved", true}
 	ExperimentalFeatureRemoved           = ExperimentalFlag{"Missing Removed", false}
 	ExperimentalFeatureSkipDestroy       = ExperimentalFlag{"Missing Lifecycle Destroy", false}
 	ExperimentalFeatureUpgradeState      = ExperimentalFlag{"Missing Upgrade Resource State", true}

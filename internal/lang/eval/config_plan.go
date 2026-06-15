@@ -20,6 +20,7 @@ import (
 	"github.com/opentofu/opentofu/internal/lang/eval/internal/evalglue"
 	"github.com/opentofu/opentofu/internal/lang/exprs"
 	"github.com/opentofu/opentofu/internal/lang/grapheval"
+	"github.com/opentofu/opentofu/internal/refactoring"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
@@ -134,6 +135,17 @@ func (c *ConfigInstance) DrivePlanning(ctx context.Context, buildGlue func(*Plan
 		planEngineGlue: glue,
 	}
 	rootModuleInstance, moreDiags := c.newRootModuleInstance(ctx, evalGlue)
+	diags = diags.Append(moreDiags)
+	if moreDiags.HasErrors() {
+		return nil, diags
+	}
+
+	oracle.moveStatements = rootModuleInstance.GetMoveStatements(ctx)
+
+	// Ensure that the move statements in the config have no cycles
+	// which is one of the few things about move statements we need
+	// to check globally.
+	moreDiags = refactoring.ValidateMoveStatementGraph(oracle.moveStatements)
 	diags = diags.Append(moreDiags)
 	if moreDiags.HasErrors() {
 		return nil, diags
