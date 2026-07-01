@@ -20,7 +20,6 @@ import (
 	"github.com/opentofu/opentofu/internal/lang/eval/internal/evalglue"
 	"github.com/opentofu/opentofu/internal/lang/exprs"
 	"github.com/opentofu/opentofu/internal/lang/grapheval"
-	"github.com/opentofu/opentofu/internal/refactoring"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
@@ -140,17 +139,6 @@ func (c *ConfigInstance) DrivePlanning(ctx context.Context, buildGlue func(*Plan
 		return nil, diags
 	}
 
-	oracle.moveStatements = rootModuleInstance.GetMoveStatements(ctx)
-
-	// Ensure that the move statements in the config have no cycles
-	// which is one of the few things about move statements we need
-	// to check globally.
-	moreDiags = refactoring.ValidateMoveStatementGraph(oracle.moveStatements)
-	diags = diags.Append(moreDiags)
-	if moreDiags.HasErrors() {
-		return nil, diags
-	}
-
 	managedProviders := newManagedProviders(c.evalContext.Providers, func(ctx context.Context, addr addrs.AbsProviderInstanceCorrect) (cty.Value, tfdiags.Diagnostics) {
 		ctx = grapheval.ContextWithNewWorker(ctx)
 
@@ -188,6 +176,13 @@ func (c *ConfigInstance) DrivePlanning(ctx context.Context, buildGlue func(*Plan
 	oracle.providers = managedProviders
 	// Inject configured providers
 	evalGlue.providers = managedProviders
+
+	oracle.moveStatements = rootModuleInstance.GetMoveStatements(ctx)
+	moreDiags = oracle.ValidateMoveStatementGraph()
+	diags = diags.Append(moreDiags)
+	if moreDiags.HasErrors() {
+		return nil, diags
+	}
 
 	// The plan phase is driven forward by us evaluating expressions during
 	// the "checkAll" process, and so we can just run that here and then
