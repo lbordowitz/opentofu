@@ -17,6 +17,13 @@ import (
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
+// ValidateMoveStatementGraph ensures that the move statements
+// in the config have no cycles, which is one of the few things
+// about move statements we need to check globally.
+func (o *PlanningOracle) ValidateMoveStatementGraph() tfdiags.Diagnostics {
+	return refactoring.ValidateMoveStatementGraph(o.moveStatements)
+}
+
 // FindAddressesMovedFromHere returns all of the addresses that this address will be moved to,
 // that is, it follows the move statements' in their logical way.
 //
