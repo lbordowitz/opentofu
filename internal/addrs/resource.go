@@ -427,7 +427,7 @@ func (r AbsResourceInstance) Noun() string {
 }
 
 func (r AbsResourceInstance) ShortNoun() string {
-	return "resource"
+	return "instance"
 }
 
 func (r absResourceInstanceKey) uniqueKeySigil() {}
