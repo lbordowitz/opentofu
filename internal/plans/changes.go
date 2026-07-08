@@ -510,13 +510,6 @@ const (
 	// instance is being forgotten because the resource has a lifecycle configuration with "destroy" set to false.
 	// Used to differentiate between the different origins of the `forgot` action.
 	ResourceInstanceForgotBecauseLifecycleDestroyInConfig ResourceInstanceChangeActionReason = 'Y'
-
-	// ResourceInstanceNoOpBecauseMoved indicates that the resource
-	// instance, which was originally designated for deletion due to orphaned state, should instead
-	// have nothing done to it at all. At the new address, the previous address will be found
-	// and the state will be moved appropriately, so we should not worry about doing anything
-	// with the state here.
-	ResourceInstanceNoOpBecauseMoved ResourceInstanceChangeActionReason = '>'
 )
 
 // OutputChange describes a change to an output value.

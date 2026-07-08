@@ -47,7 +47,7 @@ func (b *execGraphBuilder) ManagedResourceInstanceSubgraph(
 	if (plannedChange.Action == plans.Delete || plannedChange.Action == plans.Forget) && !plannedChange.After.IsNull() {
 		panic(fmt.Sprintf("change for %s has action %s but non-null planned new value", plannedChange.PrevRunAddr, plannedChange.Action))
 	}
-	if plannedChange.Action != plans.Create && plannedChange.Action != plans.Delete && plannedChange.Action != plans.Forget && (plannedChange.Before.IsNull() || plannedChange.After.IsNull()) {
+	if plannedChange.Action != plans.Create && plannedChange.Action != plans.Delete && plannedChange.Action != plans.Forget && plannedChange.Action != plans.NoOp && (plannedChange.Before.IsNull() || plannedChange.After.IsNull()) {
 		panic(fmt.Sprintf("change for %s has action %s but does not have both a before and after value", plannedChange.PrevRunAddr, plannedChange.Action))
 	}
 
@@ -74,10 +74,7 @@ func (b *execGraphBuilder) ManagedResourceInstanceSubgraph(
 	case plans.CreateThenDelete:
 		return b.managedResourceInstanceSubgraphCreateThenDelete(plannedChange)
 	case plans.NoOp:
-		// TODO: We need to handle this because it can occur if the
-		// configuration hasn't changed but the object will move to a new
-		// resource instance address during the apply phase.
-		panic("plans.NoOp execution graph not yet implemented")
+		return b.managedResourceInstanceSubgraphNoOp(plannedChange)
 	default:
 		// We should not get here: the cases above should cover every action
 		// that [planGlue.planDesiredManagedResourceInstance] can possibly
@@ -299,6 +296,18 @@ func (b *execGraphBuilder) managedResourceInstanceSubgraphCreateThenDelete(
 		deletionRef:   deletionRef,
 		addDesiredDep: addConfigDep,
 		addOrphanDep:  addDeleteDep,
+	}
+}
+
+func (b *execGraphBuilder) managedResourceInstanceSubgraphNoOp(
+	plannedChange *plans.ResourceInstanceChange,
+) resourceInstanceObjectSubgraph {
+	_, priorStateRef, addStateDep := b.managedResourceInstanceChangeAddrAndPriorStateRefs(plannedChange)
+	_, addConfigDep := b.lower.MutableWaiter()
+	return resourceInstanceObjectSubgraph{
+		valueRef:     priorStateRef,
+		addConfigDep: addConfigDep,
+		addStateDep:  addStateDep,
 	}
 }
 
