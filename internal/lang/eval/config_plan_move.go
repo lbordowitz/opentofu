@@ -45,8 +45,6 @@ func (o *PlanningOracle) FindAddressesMovedFromHere(ctx context.Context, addr ad
 // it may take a while to return.
 //
 // A flag is returned and set to true if the move was ambiguous.
-//
-// TODO does this even work??
 func (o *PlanningOracle) FindAddressesMovedToHere(ctx context.Context, addr addrs.AbsResourceInstance) ([]addrs.AbsResourceInstance, tfdiags.Diagnostics) {
 	return o.findAddressesByMove(ctx, addr, true)
 }

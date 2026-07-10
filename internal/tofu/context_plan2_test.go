@@ -2274,6 +2274,8 @@ OpenTofu has planned to destroy these objects. If OpenTofu's proposed changes ar
 }
 
 func TestContext2Plan_movedResourceUntargeted(t *testing.T) {
+	// I did not see the "excludes" flag in experimental features, but that's used here, too.
+	SkipExperimental(t, ExperimentalFeatureMoved, ExperimentalFeatureTarget)
 	addrA := mustResourceInstanceAddr("test_object.a")
 	addrB := mustResourceInstanceAddr("test_object.b")
 	m := testModuleInline(t, map[string]string{
@@ -2755,7 +2757,7 @@ resource "test_object" "b" {
 }
 
 func TestContext2Plan_movedResourceRefreshOnly(t *testing.T) {
-	SkipExperimental(t, ExperimentalFeatureMoved)
+	SkipExperimental(t, ExperimentalFeatureMoved, ExperimentalFeatureRefreshOnly)
 	addrA := mustResourceInstanceAddr("test_object.a")
 	addrB := mustResourceInstanceAddr("test_object.b")
 	m := testModuleInline(t, map[string]string{
@@ -3831,6 +3833,7 @@ func TestContext2Plan_moduleImplicitMove(t *testing.T) {
 				}, mustProviderConfig(`provider["registry.opentofu.org/hashicorp/test"]`), addrs.NoKey)
 			}),
 		},
+		// TODO mark THIS test in particular with ExperimentalFeatureModuleEnabled
 		"from nested enabled-module multiple-resource to enabled-module single-resource": {
 			config: testModuleInline(t, map[string]string{
 				"main.tf": `

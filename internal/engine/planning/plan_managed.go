@@ -192,9 +192,11 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 		}
 
 		movedPrevRoundState := prevRoundState
-		// TODO: what to do when prevRoundState is still nil?
-		movedPrevRoundPrivate := movedPrevRoundState.Private
-		if prevRoundState != nil && resourceType.ResourceTypeName() != prevRoundState.ResourceType || !inst.Provider.Equals(prevRoundState.ProviderInstanceAddr.Config.Config.Provider) {
+		var movedPrevRoundPrivate []byte
+		if movedPrevRoundState != nil {
+			movedPrevRoundPrivate = movedPrevRoundState.Private
+		}
+		if prevRoundState != nil && (resourceType.ResourceTypeName() != prevRoundState.ResourceType || !inst.Provider.Equals(prevRoundState.ProviderInstanceAddr.Config.Config.Provider)) {
 			// TODO should I add a tracer here, too?
 			/*
 				upgradeCtx := ctx
@@ -617,6 +619,9 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 
 func implicitMoveResourceInstance(mod *states.Module, desiredResource addrs.ResourceInstance) (*states.ResourceInstance, addrs.AbsResourceInstance, bool) {
 	stateRes := mod.Resource(desiredResource.Resource)
+	if stateRes == nil {
+		return nil, desiredResource.Absolute(mod.Addr), false
+	}
 	var implicitResourceMoveCandidate *states.ResourceInstance
 	// TODO "oppositeResourceInstance" is a terrible name...
 	oppositeResourceInstance := false
@@ -635,10 +640,12 @@ func implicitMoveResourceInstance(mod *states.Module, desiredResource addrs.Reso
 		oppositeResourceInstance = true
 	} else {
 		// an implicit move is not happening on the resource level
+		candidateKey = instKey
 		implicitResourceMoveCandidate = stateRes.Instance(instKey)
 	}
 	// Get the address, relative to this particular module instance,
 	// of this resource at this key
+	// TODO consider replacing with desiredResource.Absolute(mod.Addr) + addr.Key = candidateKey
 	candidateAddr := mod.Addr.ResourceInstance(
 		desiredResource.Resource.Mode,
 		desiredResource.Resource.Type,
@@ -698,10 +705,6 @@ func checkAndMarshalUpdatedState(newState cty.Value, schema providers.Schema, in
 	return src, diags
 }
 
-func isResourceMovedToDifferentType(newAddr, oldAddr addrs.AbsResourceInstance, providerAddr, oldProviderAddr addrs.Provider) bool {
-	return newAddr.Resource.Resource.Type != oldAddr.Resource.Resource.Type || !providerAddr.Equals(oldProviderAddr)
-}
-
 func (p *planGlue) planOrphanManagedResourceInstance(
 	ctx context.Context,
 	addr addrs.AbsResourceInstance,
@@ -759,7 +762,7 @@ func (p *planGlue) planUnwantedManagedResourceInstanceObject(
 			// "Ambiguous move statements": one From, many To
 			return ret, diags
 		}
-		foundState := false
+		// foundState := false
 		for _, movedAddr := range movedAddrs {
 			if movedAddr.Equal(addr.InstanceAddr) {
 				continue
@@ -769,16 +772,17 @@ func (p *planGlue) planUnwantedManagedResourceInstanceObject(
 				// We found other state. This state further down the move chain
 				// will be preferred to move, by convention and based on how
 				// it works in the "planDesired" function
-				foundState = true
+				// foundState = true
 				break
 			}
-		}
-		if !foundState {
-			// No change planned: it's moved, and the state is handled in "Desired"
-			// TODO: is that actually true?? I mean, are we sure the moved statements even
-			// point to something that exists in the configuration?
-			ret.PlannedChange = nil
-			return ret, diags
+			// We also need to figure out if this address exists within the configuration.
+			// If it does, and state moves to there, it will be handled in "Desired"
+			// TODO: this might block...
+			if p.oracle.AddressInConfig(ctx, movedAddr) {
+				// No change planned: it's moved, and the state is handled in "Desired"
+				ret.PlannedChange = nil
+				return ret, diags
+			}
 		}
 		// TODO: implicit moves
 		// the below is a copy of what we do in desired
