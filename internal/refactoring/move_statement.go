@@ -254,6 +254,9 @@ func impliedMoveStatementsForModuleResources(cfg *configs.Config, modState *stat
 			// wrote an explicit statement referring to this resource,
 			// because they may wish to select an instance key other than
 			// zero as the one to retain.
+			// Fun fact! Since implicit moves require that no explicit
+			// move statement involve the AbsAddress of the resource,
+			// they can never create a cycle.
 			if !haveMoveStatementForResource(rAddr, explicitStmts) {
 				into = append(into, MoveStatement{
 					From:      addrs.ImpliedMoveStatementEndpoint(rAddr.Instance(fromKey), approxSrcRange),

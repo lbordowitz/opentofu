@@ -140,7 +140,7 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 		// Ask the planning oracle whether there are any "moved" blocks
 		// that ultimately end up at inst.Addr (possibly through a chain of
 		// multiple moves).
-		addrs, moveDiags := p.oracle.FindAddressesMovedToHere(ctx, inst.Addr)
+		moveAddrs, moveDiags := p.oracle.FindAddressesMovedToHere(ctx, inst.Addr)
 		diags.Append(moveDiags)
 		if diags.HasErrors() {
 			// More than one address this could have come from.
@@ -152,7 +152,7 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 		// that wants to be rebound to the address in inst.Addr.
 		// Addresses are given in order of reverse move
 		foundState := false
-		for _, addr := range addrs {
+		for _, addr := range moveAddrs {
 			candidateState := p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(addr.CurrentObject())
 			if candidateState != nil {
 				if foundState {
@@ -166,9 +166,33 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 				prevRoundState = candidateState
 				prevRunAddr = addr
 			}
-			// TODO implicit moves
 		}
+		if !foundState {
+			// no state found. Try an implicit move
+			// TODO a logical question: do we do these implicit moves for EVERY candidate address above?
+			// I'd prefer it if we didn't... but I'm afraid that might match what we're expecting...
+			// Except! Who in the world is actually combining moves like that???
+			mods := p.planCtx.prevRoundState.ModuleInstances(inst.Addr.Module.Module())
+			for _, mod := range mods {
+				// TODO throughout, find a better word than "opposite"
+				oppositeModule, incompatible := oppositeModuleInstance(inst.Addr.Module, mod.Addr)
+				if incompatible {
+					continue
+				}
+
+				implicitResourceMoveCandidate, candidateAddr, oppositeResourceInstance := implicitMoveResourceInstance(mod, inst.Addr.Resource)
+				if implicitResourceMoveCandidate != nil && (oppositeModule || oppositeResourceInstance) {
+					// The implicit move succeeded
+					foundState = true
+					prevRoundState = p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(candidateAddr.CurrentObject())
+					prevRunAddr = candidateAddr
+					break
+				}
+			}
+		}
+
 		movedPrevRoundState := prevRoundState
+		// TODO: what to do when prevRoundState is still nil?
 		movedPrevRoundPrivate := movedPrevRoundState.Private
 		if prevRoundState != nil && resourceType.ResourceTypeName() != prevRoundState.ResourceType || !inst.Provider.Equals(prevRoundState.ProviderInstanceAddr.Config.Config.Provider) {
 			// TODO should I add a tracer here, too?
@@ -591,6 +615,59 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 	return ret, diags
 }
 
+func implicitMoveResourceInstance(mod *states.Module, desiredResource addrs.ResourceInstance) (*states.ResourceInstance, addrs.AbsResourceInstance, bool) {
+	stateRes := mod.Resource(desiredResource.Resource)
+	var implicitResourceMoveCandidate *states.ResourceInstance
+	// TODO "oppositeResourceInstance" is a terrible name...
+	oppositeResourceInstance := false
+
+	// Try to find the resource with the opposite key, wrt implicit moves
+	instKey := desiredResource.Key
+	candidateKey := instKey
+	if instKey == addrs.NoKey {
+		candidateKey = addrs.IntKey(0)
+		implicitResourceMoveCandidate = stateRes.Instance(candidateKey)
+	} else if instKey == addrs.IntKey(0) {
+		candidateKey = addrs.NoKey
+		implicitResourceMoveCandidate = stateRes.Instance(candidateKey)
+	}
+	if implicitResourceMoveCandidate != nil {
+		oppositeResourceInstance = true
+	} else {
+		// an implicit move is not happening on the resource level
+		implicitResourceMoveCandidate = stateRes.Instance(instKey)
+	}
+	// Get the address, relative to this particular module instance,
+	// of this resource at this key
+	candidateAddr := mod.Addr.ResourceInstance(
+		desiredResource.Resource.Mode,
+		desiredResource.Resource.Type,
+		desiredResource.Resource.Name,
+		candidateKey,
+	)
+	return implicitResourceMoveCandidate, candidateAddr, oppositeResourceInstance
+}
+
+// TODO oppositeModuleInstance is a terrible name. I know they're "opposite"
+// in a sense of NoKey vs IntKey(0), but, like... is there a better name?
+// Because "opposite" could mean a lot of things! It's doing a lot of
+// contextual heavy lifting, baby!
+func oppositeModuleInstance(a, b addrs.ModuleInstance) (bool, bool) {
+	if len(a) != len(b) {
+		panic("the oppositeModuleInstance function should never be called on modules with different lengths")
+	}
+	foundOpposite := false
+	for i := range len(a) {
+		if a[i].InstanceKey == addrs.NoKey && b[i].InstanceKey == addrs.IntKey(0) ||
+			a[i].InstanceKey == addrs.IntKey(0) && b[i].InstanceKey == addrs.NoKey {
+			foundOpposite = true
+		} else if a[i].InstanceKey != b[i].InstanceKey {
+			return false, true
+		}
+	}
+	return foundOpposite, false
+}
+
 func checkAndMarshalUpdatedState(newState cty.Value, schema providers.Schema, inst *eval.DesiredResourceInstance) (ret []byte, diags tfdiags.Diagnostics) {
 	// After upgrading, the new value must conform to the current schema. When
 	// going over RPC this is actually already ensured by the
@@ -698,10 +775,39 @@ func (p *planGlue) planUnwantedManagedResourceInstanceObject(
 		}
 		if !foundState {
 			// No change planned: it's moved, and the state is handled in "Desired"
+			// TODO: is that actually true?? I mean, are we sure the moved statements even
+			// point to something that exists in the configuration?
 			ret.PlannedChange = nil
 			return ret, diags
 		}
-		// TODO implicit moves
+		// TODO: implicit moves
+		// the below is a copy of what we do in desired
+		// so we can do a mirror-image of it, or some such similar thing
+		/*
+
+			// no state found. Try an implicit move
+			// TODO a logical question: do we do these implicit moves for EVERY candidate address above?
+			// I'd prefer it if we didn't... but I'm afraid that might match what we're expecting...
+			// Except! Who in the world is actually combining moves like that???
+			mods := p.planCtx.prevRoundState.ModuleInstances(inst.Addr.Module.Module())
+			for _, mod := range mods {
+				// TODO throughout, find a better word than "opposite"
+				oppositeModule, incompatible := oppositeModuleInstance(inst.Addr.Module, mod.Addr)
+				if incompatible {
+					continue
+				}
+
+				implicitResourceMoveCandidate, candidateAddr, oppositeResourceInstance := implicitMoveResourceInstance(mod, inst.Addr.Resource)
+				if implicitResourceMoveCandidate != nil && (oppositeModule || oppositeResourceInstance) {
+					// The implicit move succeeded
+					foundState = true
+					prevRoundState = p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(candidateAddr.CurrentObject())
+					prevRunAddr = candidateAddr
+					break
+				}
+			}
+		*/
+
 	}
 
 	// FIXME: Currently this fails if the only mention of a particular provider
