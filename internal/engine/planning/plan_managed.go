@@ -159,12 +159,17 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 					// we found a state before, and now we found another one.
 					// In the previous runtime, this is given as a "blocked" warning.
 					// TODO implement "Moved object still exists in config" diags warning.
+					p.oracle.RecordBlockedMove(inst.Addr, addr)
 					continue
 				}
 				// found state at a moveable address!
 				foundState = true
 				prevRoundState = candidateState
 				prevRunAddr = addr
+
+				// Record move in the oracle, for use in "Unwanted" section
+				// TODO this is concurrent map writing. We need to protect against this.
+				p.oracle.RecordSuccessfulMove(inst.Addr, addr)
 			}
 		}
 		if !foundState {
@@ -186,6 +191,10 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 					foundState = true
 					prevRoundState = p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(candidateAddr.CurrentObject())
 					prevRunAddr = candidateAddr
+
+					// Record move in the oracle, for use in "Unwanted" section
+					// TODO this is concurrent map writing. We need to protect against this.
+					p.oracle.RecordSuccessfulMove(inst.Addr, candidateAddr)
 					break
 				}
 			}
@@ -755,63 +764,19 @@ func (p *planGlue) planUnwantedManagedResourceInstanceObject(
 	// to get a comprehensive set of everything we ought to depend on.
 
 	if addr.IsCurrent() {
-		movedAddrs, moveDiags := p.oracle.FindAddressesMovedFromHere(ctx, addr.InstanceAddr)
+		// TODO potentially change the name of this function, make it purely diagnostic
+		_, moveDiags := p.oracle.FindAddressesMovedFromHere(ctx, addr.InstanceAddr)
 		diags.Append(moveDiags)
 		if diags.HasErrors() {
 			// More than one address this could move to.
 			// "Ambiguous move statements": one From, many To
 			return ret, diags
 		}
-		// foundState := false
-		for _, movedAddr := range movedAddrs {
-			if movedAddr.Equal(addr.InstanceAddr) {
-				continue
-			}
-			candidateState := p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(movedAddr.CurrentObject())
-			if candidateState != nil {
-				// We found other state. This state further down the move chain
-				// will be preferred to move, by convention and based on how
-				// it works in the "planDesired" function
-				// foundState = true
-				break
-			}
-			// We also need to figure out if this address exists within the configuration.
-			// If it does, and state moves to there, it will be handled in "Desired"
-			// TODO: this might block...
-			if p.oracle.AddressInConfig(ctx, movedAddr) {
-				// No change planned: it's moved, and the state is handled in "Desired"
-				ret.PlannedChange = nil
-				return ret, diags
-			}
+		if p.oracle.AddressWasMoved(ctx, addr.InstanceAddr) {
+			// No change planned: it's moved, and the state is handled in "Desired"
+			ret.PlannedChange = nil
+			return ret, diags
 		}
-		// TODO: implicit moves
-		// the below is a copy of what we do in desired
-		// so we can do a mirror-image of it, or some such similar thing
-		/*
-
-			// no state found. Try an implicit move
-			// TODO a logical question: do we do these implicit moves for EVERY candidate address above?
-			// I'd prefer it if we didn't... but I'm afraid that might match what we're expecting...
-			// Except! Who in the world is actually combining moves like that???
-			mods := p.planCtx.prevRoundState.ModuleInstances(inst.Addr.Module.Module())
-			for _, mod := range mods {
-				// TODO throughout, find a better word than "opposite"
-				oppositeModule, incompatible := oppositeModuleInstance(inst.Addr.Module, mod.Addr)
-				if incompatible {
-					continue
-				}
-
-				implicitResourceMoveCandidate, candidateAddr, oppositeResourceInstance := implicitMoveResourceInstance(mod, inst.Addr.Resource)
-				if implicitResourceMoveCandidate != nil && (oppositeModule || oppositeResourceInstance) {
-					// The implicit move succeeded
-					foundState = true
-					prevRoundState = p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(candidateAddr.CurrentObject())
-					prevRunAddr = candidateAddr
-					break
-				}
-			}
-		*/
-
 	}
 
 	// FIXME: Currently this fails if the only mention of a particular provider

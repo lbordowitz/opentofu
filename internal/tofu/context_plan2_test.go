@@ -3685,6 +3685,7 @@ func TestContext2Plan_moduleImplicitMove(t *testing.T) {
 		prevAddr     addrs.AbsResourceInstance
 		config       *configs.Config
 		prevState    *states.State
+		skipFlags    []ExperimentalFlag
 	}{
 		"from count-module single-resource to enabled-module single-resource": {
 			config: testModuleInline(t, map[string]string{
@@ -3833,7 +3834,6 @@ func TestContext2Plan_moduleImplicitMove(t *testing.T) {
 				}, mustProviderConfig(`provider["registry.opentofu.org/hashicorp/test"]`), addrs.NoKey)
 			}),
 		},
-		// TODO mark THIS test in particular with ExperimentalFeatureModuleEnabled
 		"from nested enabled-module multiple-resource to enabled-module single-resource": {
 			config: testModuleInline(t, map[string]string{
 				"main.tf": `
@@ -3886,6 +3886,7 @@ func TestContext2Plan_moduleImplicitMove(t *testing.T) {
 					Status:    states.ObjectReady,
 				}, mustProviderConfig(`provider["registry.opentofu.org/hashicorp/test"]`), addrs.NoKey)
 			}),
+			skipFlags: []ExperimentalFlag{ExperimentalFeatureModuleEnabled},
 		},
 	}
 
@@ -3898,6 +3899,7 @@ func TestContext2Plan_moduleImplicitMove(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			SkipExperimental(t, test.skipFlags...)
 			plan, diags := ctx.Plan(context.Background(), test.config, test.prevState, DefaultPlanOpts)
 			if diags.HasErrors() {
 				t.Fatalf("unexpected errors\n%s", diags.Err().Error())

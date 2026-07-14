@@ -22,6 +22,7 @@ type PlanningOracle struct {
 	root           evalglue.CompiledModuleInstance
 	providers      *managedProviders
 	moveStatements []refactoring.MoveStatement
+	moveResults    refactoring.MoveResults
 }
 
 // ProviderInstanceConfig returns a value representing the configuration to
@@ -60,13 +61,6 @@ func (o *PlanningOracle) PreventDestroy(ctx context.Context, addr addrs.AbsResou
 		return cty.False, nil, nil
 	}
 	return resource.PreventDestroy(ctx)
-}
-
-// AddressInConfiguration checks if a given address is present in the configuration.
-// This is helpful for moves, where a move statement may or may not refer to a
-// desired managed resource.
-func (o *PlanningOracle) AddressInConfig(ctx context.Context, addr addrs.AbsResourceInstance) bool {
-	return evalglue.ResourceInstance(ctx, o.root, addr) != nil
 }
 
 func (o *PlanningOracle) Close(ctx context.Context) tfdiags.Diagnostics {

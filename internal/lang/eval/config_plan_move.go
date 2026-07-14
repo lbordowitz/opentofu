@@ -6,6 +6,7 @@
 package eval
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"iter"
@@ -16,6 +17,13 @@ import (
 	"github.com/opentofu/opentofu/internal/refactoring"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
+
+func (o *PlanningOracle) MakeMoveResults() {
+	o.moveResults = refactoring.MoveResults{
+		Changes: addrs.MakeMap[addrs.AbsResourceInstance, refactoring.MoveSuccess](),
+		Blocked: addrs.MakeMap[addrs.AbsMoveable, refactoring.MoveBlocked](),
+	}
+}
 
 // ValidateMoveStatementGraph ensures that the move statements
 // in the config have no cycles, which is one of the few things
@@ -145,4 +153,52 @@ func manyFromOneTo(first *moveInfo, mi *moveInfo) *hcl.Diagnostic {
 		),
 		Subject: mi.stmt.DeclRange.ToHCL().Ptr(),
 	}
+}
+
+// To anybody who is used to the previous runtime's handling of move statements:
+// These are subtly different, storing the prevRunAddr as key in the map.
+// We look that up for real moves done during "Unwanted" checks
+
+func (o *PlanningOracle) RecordSuccessfulMove(newAddr, oldAddr addrs.AbsResourceInstance) {
+	// if prevMove, exists := o.moveResults.Changes.GetOk(oldAddr); exists {
+	// 	// If the old address was _already_ the result of a move then
+	// 	// we'll replace that entry so that our results summarize a chain
+	// 	// of moves into a single entry.
+	// 	o.moveResults.Changes.Remove(oldAddr)
+	// 	oldAddr = prevMove.From
+	// }
+	o.moveResults.Changes.Put(oldAddr, refactoring.MoveSuccess{
+		From: oldAddr,
+		To:   newAddr,
+	})
+}
+
+func (o *PlanningOracle) RecordBlockedMove(newAddr, wantedAddr addrs.AbsResourceInstance) {
+	o.moveResults.Blocked.Put(wantedAddr, refactoring.MoveBlocked{
+		Wanted: wantedAddr,
+		Actual: newAddr,
+	})
+}
+
+func (o *PlanningOracle) AddressWasMoved(ctx context.Context, addr addrs.AbsResourceInstance) bool {
+	return o.moveResults.Changes.Has(addr)
+}
+
+func (o *PlanningOracle) BlockedDiags() tfdiags.Diagnostics {
+	if o.moveResults.Blocked.Len() == 0 {
+		return nil
+	}
+	var itemsBuf bytes.Buffer
+	for _, blocked := range o.moveResults.Blocked.Values() {
+		fmt.Fprintf(&itemsBuf, "\n  - %s could not move to %s", blocked.Actual, blocked.Wanted)
+	}
+
+	return tfdiags.Diagnostics{tfdiags.Sourceless(
+		tfdiags.Warning,
+		"Unresolved resource instance address changes",
+		fmt.Sprintf(
+			"OpenTofu tried to adjust resource instance addresses in the prior state based on change information recorded in the configuration, but some adjustments did not succeed due to existing objects already at the intended addresses:%s\n\nOpenTofu has planned to destroy these objects. If OpenTofu's proposed changes aren't appropriate, you must first resolve the conflicts using the \"tofu state\" subcommands and then create a new plan.",
+			itemsBuf.String(),
+		),
+	)}
 }
