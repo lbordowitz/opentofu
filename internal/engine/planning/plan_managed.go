@@ -135,13 +135,18 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 	prevRoundState := p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(inst.Addr.CurrentObject())
 
 	prevRunAddr := inst.Addr
+	diags = diags.Append(p.oracle.CheckMovesFromAddr(inst.Addr))
+	if diags.HasErrors() {
+		return ret, diags
+	}
+
 	if prevRoundState == nil {
 
 		// Ask the planning oracle whether there are any "moved" blocks
 		// that ultimately end up at inst.Addr (possibly through a chain of
 		// multiple moves).
 		moveAddrs, moveDiags := p.oracle.FindAddressesMovedToHere(ctx, inst.Addr)
-		diags.Append(moveDiags)
+		diags = diags.Append(moveDiags)
 		if diags.HasErrors() {
 			// More than one address this could have come from.
 			// "Ambiguous move statements": many From, one To
@@ -156,10 +161,9 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 			candidateState := p.planCtx.prevRoundState.SyncWrapper().ResourceInstanceObjectFull(addr.CurrentObject())
 			if candidateState != nil {
 				if foundState {
-					// we found a state before, and now we found another one.
-					// In the previous runtime, this is given as a "blocked" warning.
-					// TODO implement "Moved object still exists in config" diags warning.
-					p.oracle.RecordBlockedMove(inst.Addr, addr)
+					// We found a state before, and now we found another one.
+					// Note: our previously-found state will be at prevRunAddr at this point
+					p.oracle.RecordBlockedMove(addr, prevRunAddr)
 					continue
 				}
 				// found state at a moveable address!
@@ -766,7 +770,7 @@ func (p *planGlue) planUnwantedManagedResourceInstanceObject(
 	if addr.IsCurrent() {
 		// TODO potentially change the name of this function, make it purely diagnostic
 		_, moveDiags := p.oracle.FindAddressesMovedFromHere(ctx, addr.InstanceAddr)
-		diags.Append(moveDiags)
+		diags = diags.Append(moveDiags)
 		if diags.HasErrors() {
 			// More than one address this could move to.
 			// "Ambiguous move statements": one From, many To

@@ -302,12 +302,11 @@ func (b *execGraphBuilder) managedResourceInstanceSubgraphCreateThenDelete(
 func (b *execGraphBuilder) managedResourceInstanceSubgraphNoOp(
 	plannedChange *plans.ResourceInstanceChange,
 ) resourceInstanceObjectSubgraph {
-	_, priorStateRef, addStateDep := b.managedResourceInstanceChangeAddrAndPriorStateRefs(plannedChange)
+	_, priorStateRef := b.managedResourceInstanceChangeAddrAndPriorStateRefs(plannedChange)
 	_, addConfigDep := b.lower.MutableWaiter()
 	return resourceInstanceObjectSubgraph{
-		valueRef:     priorStateRef,
-		addConfigDep: addConfigDep,
-		addStateDep:  addStateDep,
+		valueRef:      priorStateRef,
+		addDesiredDep: addConfigDep,
 	}
 }
 

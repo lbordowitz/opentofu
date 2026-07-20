@@ -22,7 +22,7 @@ type PlanningOracle struct {
 	root           evalglue.CompiledModuleInstance
 	providers      *managedProviders
 	moveStatements []refactoring.MoveStatement
-	moveResults    refactoring.MoveResults
+	moveResults    moveResults
 }
 
 // ProviderInstanceConfig returns a value representing the configuration to

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"iter"
 	"slices"
+	"sync"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/opentofu/opentofu/internal/addrs"
@@ -18,11 +19,9 @@ import (
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
-func (o *PlanningOracle) MakeMoveResults() {
-	o.moveResults = refactoring.MoveResults{
-		Changes: addrs.MakeMap[addrs.AbsResourceInstance, refactoring.MoveSuccess](),
-		Blocked: addrs.MakeMap[addrs.AbsMoveable, refactoring.MoveBlocked](),
-	}
+type moveResults struct {
+	Changes sync.Map
+	Blocked sync.Map
 }
 
 // ValidateMoveStatementGraph ensures that the move statements
@@ -167,30 +166,47 @@ func (o *PlanningOracle) RecordSuccessfulMove(newAddr, oldAddr addrs.AbsResource
 	// 	o.moveResults.Changes.Remove(oldAddr)
 	// 	oldAddr = prevMove.From
 	// }
-	o.moveResults.Changes.Put(oldAddr, refactoring.MoveSuccess{
+	o.moveResults.Changes.Store(oldAddr, refactoring.MoveSuccess{
 		From: oldAddr,
 		To:   newAddr,
 	})
 }
 
 func (o *PlanningOracle) RecordBlockedMove(newAddr, wantedAddr addrs.AbsResourceInstance) {
-	o.moveResults.Blocked.Put(wantedAddr, refactoring.MoveBlocked{
+	o.moveResults.Blocked.Store(wantedAddr, refactoring.MoveBlocked{
 		Wanted: wantedAddr,
 		Actual: newAddr,
 	})
 }
 
 func (o *PlanningOracle) AddressWasMoved(ctx context.Context, addr addrs.AbsResourceInstance) bool {
-	return o.moveResults.Changes.Has(addr)
+	_, ok := o.moveResults.Changes.Load(addr)
+	return ok
 }
 
 func (o *PlanningOracle) BlockedDiags() tfdiags.Diagnostics {
-	if o.moveResults.Blocked.Len() == 0 {
-		return nil
-	}
 	var itemsBuf bytes.Buffer
-	for _, blocked := range o.moveResults.Blocked.Values() {
+	var mux sync.Mutex
+	var markNonEmptyOnce sync.Once
+	empty := true
+
+	o.moveResults.Blocked.Range(func(_, value any) bool {
+		blocked := value.(refactoring.MoveBlocked)
+
+		mux.Lock()
 		fmt.Fprintf(&itemsBuf, "\n  - %s could not move to %s", blocked.Actual, blocked.Wanted)
+		mux.Unlock()
+
+		markNonEmptyOnce.Do(func() {
+			empty = false
+		})
+
+		// always return true; we want to go thru every item in the range
+		return true
+	})
+
+	if empty {
+		return nil
 	}
 
 	return tfdiags.Diagnostics{tfdiags.Sourceless(
@@ -201,4 +217,36 @@ func (o *PlanningOracle) BlockedDiags() tfdiags.Diagnostics {
 			itemsBuf.String(),
 		),
 	)}
+}
+
+func (o *PlanningOracle) CheckMovesFromAddr(addr addrs.AbsResourceInstance) (diags tfdiags.Diagnostics) {
+	for _, move := range o.moveStatements {
+		// if the move statement can move our address, it matches the "From"
+		if to, moved := addr.MoveDestination(move.From, move.To); moved {
+			// TODO this is incorrect and causes an error. From and To don't necessarily belong to addr's Module...
+			// We want to use these absFrom and absTo in order to get the appropriate kind of address type
+			// that the move statement actually references. Otherwise, we refer to everything
+			// as a resource instance in the diagnostic's detail.
+
+			// absFrom := move.From.InModuleInstance(addr.Module)
+			// absTo := move.To.InModuleInstance(addr.Module)
+			// noun := absFrom.Noun()
+			// shortNoun := absFrom.ShortNoun()
+
+			// TODO determine DeclRange, probably by adding some config information from the caller
+			declaredAt := ""
+
+			diags = diags.Append(&hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "Moved object still exists",
+				Detail: fmt.Sprintf(
+					"This statement declares a move from %s, but that %s is still declared%s.\n\nChange your configuration so that this %s will be declared as %s instead.",
+					// TODO: these are wrong, see above
+					addr, addr.Noun(), declaredAt, addr.ShortNoun(), to,
+				),
+				Subject: move.DeclRange.ToHCL().Ptr(),
+			})
+		}
+	}
+	return diags
 }

@@ -31,7 +31,7 @@ build:
 # Experimental engine building
 .PHONY: build-experimental
 build-experimental:
-	TOFU_X_EXPERIMENTAL_RUNTIME=1 go build -ldflags "-X main.version=$(shell git describe --tags --always --dirty) -X main.experimentsAllowed=yes" -o tofu$(EXT) ./cmd/tofu
+	TOFU_X_EXPERIMENTAL_RUNTIME=1 go build -gcflags=all="-N -l" -ldflags "-X main.version=$(shell git describe --tags --always --dirty) -X main.experimentsAllowed=yes" -o tofu$(EXT) ./cmd/tofu
 
 # Experimental engine testing
 .PHONY: test-experimental
