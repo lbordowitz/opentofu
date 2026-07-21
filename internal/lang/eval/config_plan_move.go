@@ -20,8 +20,15 @@ import (
 )
 
 type moveResults struct {
-	Changes sync.Map
-	Blocked sync.Map
+	Changes addrs.SyncMap[addrs.AbsResourceInstance, refactoring.MoveSuccess]
+	Blocked addrs.SyncMap[addrs.AbsMoveable, refactoring.MoveBlocked]
+}
+
+func (o *PlanningOracle) MakeMoveResults() {
+	o.moveResults = moveResults{
+		Changes: addrs.MakeSyncMap[addrs.AbsResourceInstance, refactoring.MoveSuccess](),
+		Blocked: addrs.MakeSyncMap[addrs.AbsMoveable, refactoring.MoveBlocked](),
+	}
 }
 
 // ValidateMoveStatementGraph ensures that the move statements
@@ -166,22 +173,21 @@ func (o *PlanningOracle) RecordSuccessfulMove(newAddr, oldAddr addrs.AbsResource
 	// 	o.moveResults.Changes.Remove(oldAddr)
 	// 	oldAddr = prevMove.From
 	// }
-	o.moveResults.Changes.Store(oldAddr, refactoring.MoveSuccess{
+	o.moveResults.Changes.Put(oldAddr, refactoring.MoveSuccess{
 		From: oldAddr,
 		To:   newAddr,
 	})
 }
 
 func (o *PlanningOracle) RecordBlockedMove(newAddr, wantedAddr addrs.AbsResourceInstance) {
-	o.moveResults.Blocked.Store(wantedAddr, refactoring.MoveBlocked{
+	o.moveResults.Blocked.Put(wantedAddr, refactoring.MoveBlocked{
 		Wanted: wantedAddr,
 		Actual: newAddr,
 	})
 }
 
 func (o *PlanningOracle) AddressWasMoved(ctx context.Context, addr addrs.AbsResourceInstance) bool {
-	_, ok := o.moveResults.Changes.Load(addr)
-	return ok
+	return o.moveResults.Changes.Has(addr)
 }
 
 func (o *PlanningOracle) BlockedDiags() tfdiags.Diagnostics {
@@ -190,9 +196,7 @@ func (o *PlanningOracle) BlockedDiags() tfdiags.Diagnostics {
 	var markNonEmptyOnce sync.Once
 	empty := true
 
-	o.moveResults.Blocked.Range(func(_, value any) bool {
-		blocked := value.(refactoring.MoveBlocked)
-
+	o.moveResults.Blocked.Range(func(_ addrs.AbsMoveable, blocked refactoring.MoveBlocked) bool {
 		mux.Lock()
 		fmt.Fprintf(&itemsBuf, "\n  - %s could not move to %s", blocked.Actual, blocked.Wanted)
 		mux.Unlock()

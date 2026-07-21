@@ -183,6 +183,8 @@ func (c *ConfigInstance) DrivePlanning(ctx context.Context, buildGlue func(*Plan
 	if moreDiags.HasErrors() {
 		return nil, diags
 	}
+	// Set up the move results map
+	oracle.MakeMoveResults()
 
 	// The plan phase is driven forward by us evaluating expressions during
 	// the "checkAll" process, and so we can just run that here and then
