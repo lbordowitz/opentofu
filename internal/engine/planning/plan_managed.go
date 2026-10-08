@@ -17,6 +17,7 @@ import (
 	"github.com/opentofu/opentofu/internal/engine/internal/exec"
 	"github.com/opentofu/opentofu/internal/lang/eval"
 	"github.com/opentofu/opentofu/internal/plans"
+	"github.com/opentofu/opentofu/internal/plans/objchange"
 	"github.com/opentofu/opentofu/internal/providers"
 	"github.com/opentofu/opentofu/internal/resources"
 	"github.com/opentofu/opentofu/internal/states"
@@ -534,6 +535,11 @@ func (p *planGlue) planDesiredManagedResourceInstance(
 		ret.PlaceholderValue = refreshedVal
 		plannedAction = plans.NoOp
 	}
+
+	// This mark is needed for data resources downstream, which
+	// implicitly depend on the entire managed resource having no pending changes.
+	planResp.Planned.Value = objchange.MarkPendingChanges(schema.Block, planResp.Current.Value, planResp.Planned.Value, inst.Addr)
+
 	// (a "desired" object cannot have a Delete action; we handle those cases
 	// in planOrphanManagedResourceInstance and planDeposedManagedResourceInstanceObject below.)
 	ret.PlannedChange = &plans.ResourceInstanceChange{
