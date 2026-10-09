@@ -15,6 +15,7 @@ import (
 	"github.com/opentofu/opentofu/internal/addrs"
 	"github.com/opentofu/opentofu/internal/lang/exprs"
 	"github.com/opentofu/opentofu/internal/lang/grapheval"
+	"github.com/opentofu/opentofu/internal/plans/objchange"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
@@ -35,7 +36,14 @@ func (l *LocalValue) Value(ctx context.Context) (cty.Value, tfdiags.Diagnostics)
 	// There aren't really any special rules for a local value: it just
 	// allows authors to associate a value with a name so they can reuse
 	// it multiple places.
-	return l.RawValue.Value(ctx)
+
+	// Actually, there's one special rule for local values:
+	// pending changes do not propagate through them!
+	// See TestContext2Plan_dataReferencesResourceIndirectly
+
+	v, diags := l.RawValue.Value(ctx)
+	v = objchange.RemovePendingChangesMark(v)
+	return v, diags
 }
 
 // ValueSourceRange implements exprs.Valuer.

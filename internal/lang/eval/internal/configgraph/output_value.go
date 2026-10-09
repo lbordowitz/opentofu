@@ -21,6 +21,7 @@ import (
 	"github.com/opentofu/opentofu/internal/lang/exprs"
 	"github.com/opentofu/opentofu/internal/lang/grapheval"
 	"github.com/opentofu/opentofu/internal/lang/marks"
+	"github.com/opentofu/opentofu/internal/plans/objchange"
 	"github.com/opentofu/opentofu/internal/tfdiags"
 )
 
@@ -131,6 +132,10 @@ func (o *OutputValue) Value(ctx context.Context) (cty.Value, tfdiags.Diagnostics
 		})
 		finalV = exprs.AsEvalError(cty.UnknownVal(o.TargetType.WithoutOptionalAttributesDeep())).WithMarks(preconditionMarks)
 	}
+
+	// Pending changes do not propagate through output vals
+	// See TestContext2Plan_dataReferencesResourceIndirectly
+	finalV = objchange.RemovePendingChangesMark(finalV)
 
 	finalV = finalV.WithMarks(preconditionMarks)
 	if o.ForceSensitive {
